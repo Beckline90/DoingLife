@@ -88,6 +88,8 @@ namespace DoingLife.WebApi
         private static void ConfigureIdentity(
             WebApplicationBuilder builder)
         {
+            builder.Services.AddDataProtection();
+
             builder.Services
                 .AddIdentityCore<User>(options =>
                 {
