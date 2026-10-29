@@ -1,7 +1,8 @@
-
 using DoingLife.WebApi.DAL;
-using Microsoft.EntityFrameworkCore;
+using DoingLife.WebApi.Entities;
 using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace DoingLife.WebApi
 {
@@ -16,6 +17,9 @@ namespace DoingLife.WebApi
 
             // Configure PostgreSQL
             ConfigureDatabase(builder);
+
+            // Configure ASP.NET Core Identity
+            ConfigureIdentity(builder);
 
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();
@@ -75,7 +79,25 @@ namespace DoingLife.WebApi
             }
 
             builder.Services.AddDbContext<AppDbContext>(
-                options => options.UseNpgsql(connectionString));
+                options => options
+                    .UseNpgsql(connectionString)
+                    .UseSnakeCaseNamingConvention());
+        }
+
+        // ASP.NET Core Identity registration
+        private static void ConfigureIdentity(
+            WebApplicationBuilder builder)
+        {
+            builder.Services
+                .AddIdentityCore<User>(options =>
+                {
+                    options.User.RequireUniqueEmail = true;
+                    options.Password.RequiredLength = 8;
+                })
+                .AddRoles<IdentityRole<int>>()
+                .AddEntityFrameworkStores<AppDbContext>()
+                .AddSignInManager()
+                .AddDefaultTokenProviders();
         }
     }
 }
