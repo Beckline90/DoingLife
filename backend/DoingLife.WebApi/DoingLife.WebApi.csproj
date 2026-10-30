@@ -24,11 +24,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="BLL\Helper\" />
     <Folder Include="DAL\" />
     <Folder Include="Entities\" />
     <Folder Include="Filters\" />
-    <Folder Include="ViewModel\" />
   </ItemGroup>
 
   <ItemGroup>

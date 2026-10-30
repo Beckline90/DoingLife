@@ -1,3 +1,6 @@
+using DoingLife.WebApi.BLL;
+using DoingLife.WebApi.BLL.Helper;
+using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
 using Microsoft.AspNetCore.HttpLogging;
@@ -24,6 +27,9 @@ namespace DoingLife.WebApi
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
+
+            builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 
             // Configure HTTP logging
             builder.Services.AddHttpLogging(options =>
