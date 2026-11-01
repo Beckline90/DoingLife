@@ -1,5 +1,4 @@
-﻿
-using DoingLife.WebApi.BLL.Interfaces;
+﻿using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
 using DoingLife.WebApi.Shared.Constant;
