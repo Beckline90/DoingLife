@@ -3,9 +3,9 @@ name: Doing Life .NET CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
   build:
@@ -15,13 +15,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
-
-      - name: Find .NET projects
-        run: find ./backend -name "*.csproj" -o -name "*.sln"
+          dotnet-version: '10.0.x'
 
       - name: Restore dependencies
         run: dotnet restore ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj
