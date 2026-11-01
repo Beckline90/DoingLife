@@ -1,6 +1,5 @@
 ﻿
 using DoingLife.WebApi.BLL.Interfaces;
-using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
 using DoingLife.WebApi.Shared.Constant;
@@ -129,6 +128,8 @@ namespace DoingLife.WebApi.BLL
 
         private async Task SendConfirmationEmailAsync(User user)
         {
+            if (string.IsNullOrWhiteSpace(user.Email))
+                return;
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
@@ -143,5 +144,7 @@ namespace DoingLife.WebApi.BLL
 
             await _emailService.SendAsync(user.Email, "Confirm your email", body);
         }
+
+
     }
 }
