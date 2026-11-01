@@ -1,14 +1,15 @@
 ﻿
 using DoingLife.WebApi.BLL.Interfaces;
-using DoingLife.WebApi.Shared.Helper;
-using System.Net;
-using System.Text;
 using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
+using DoingLife.WebApi.Shared.Constant;
+using DoingLife.WebApi.Shared.Helper;
 using DoingLife.WebApi.ViewModel;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
+using System.Net;
+using System.Text;
 
 namespace DoingLife.WebApi.BLL
 {
@@ -29,6 +30,25 @@ namespace DoingLife.WebApi.BLL
 
         public async Task<ServiceResult> RegisterAsync(RegisterRequestView request)
         {
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var dateOfBirth = request.DateOfBirth!.Value;
+            var age = AgeHelper.CalculateAge(dateOfBirth, today);
+
+            if (dateOfBirth > today || age > AppRules.MaxAge)
+            {
+                return ServiceResult.Failure("Please enter a valid date of birth.");
+            }
+
+            if (age < AppRules.MinAge)
+            {
+                return ServiceResult.Failure(
+                    "You must be 18 or older to create an account. Support for younger users with parental consent is coming soon.");
+            }
+
+            if (!request.AcceptedTerms)
+            {
+                return ServiceResult.Failure("You must accept the Terms of Service and Privacy Policy.");
+            }
             var existingUser = await _userManager.FindByEmailAsync(request.Email);
             if (existingUser != null)
             {
@@ -54,7 +74,7 @@ namespace DoingLife.WebApi.BLL
                 return ServiceResult.Failure(result.Errors.Select(e => e.Description).ToArray());
             }
 
-            _context.UserProfiles.Add(new UserProfile { UserId = user.Id });
+            _context.UserProfiles.Add(new UserProfile { UserId = user.Id, DateOfBirth = request.DateOfBirth });
             _context.UserPreferences.Add(new UserPreference { UserId = user.Id, TimeZone = "UTC"});
             await _context.SaveChangesAsync();
 

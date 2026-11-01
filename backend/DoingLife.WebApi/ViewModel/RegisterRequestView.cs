@@ -27,4 +27,9 @@ public class RegisterRequestView
     [RegularExpression(ValidationPatterns.PersonName,
         ErrorMessage = "Last name can only contain letters, spaces, hyphens and apostrophes.")]
     public string LastName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Date of birth is required.")]
+    public DateOnly? DateOfBirth { get; set; }
+
+    public bool AcceptedTerms { get; set; }
 }
