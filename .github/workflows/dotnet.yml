@@ -1,5 +1,5 @@
 
-name: Doing Life .NET CI
+name: Doing Life .NET Build
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup .NET 10
@@ -20,22 +20,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Check SDK
-        run: dotnet --info
-
-      - name: Show project references
-        run: cat ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj
-
-      - name: Clean generated build files
-        run: |
-          rm -rf ./backend/DoingLife.WebApi/bin
-          rm -rf ./backend/DoingLife.WebApi/obj
-
       - name: Restore dependencies
         run: dotnet restore ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj
 
-      - name: List resolved packages
-        run: dotnet list ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj package --include-transitive
-
-      - name: Build project
+      - name: Build API
         run: dotnet build ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj --configuration Release --no-restore
