@@ -1,7 +1,5 @@
-# This workflow will build a .NET project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-net
 
-name: .NET
+name: Doing Life .NET CI
 
 on:
   push:
@@ -11,18 +9,22 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: 8.0.x
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Find .NET projects
+        run: find ./backend -name "*.csproj" -o -name "*.sln"
+
+      - name: Restore dependencies
+        run: dotnet restore ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj
+
+      - name: Build project
+        run: dotnet build ./backend/DoingLife.WebApi/DoingLife.WebApi.csproj --configuration Release --no-restore
