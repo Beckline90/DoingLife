@@ -23,7 +23,6 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
 
     public virtual DbSet<UserSession> UserSessions { get; set; }
 
-    public virtual DbSet<UserSocialLogin> UserSocialLogins { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -205,37 +204,13 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
             entity.HasOne(d => d.User).WithMany(p => p.UserSessions)
                 .HasForeignKey(d => d.UserId)
                 .HasConstraintName("user_session_user_id_fkey");
-        });
+            entity.Property(e => e.RefreshTokenHash)
+               .IsRequired()
+               .HasMaxLength(64)
+              .HasColumnName("refresh_token_hash");
 
-        modelBuilder.Entity<UserSocialLogin>(entity =>
-        {
-            entity.HasKey(e => e.UserSocialLoginId).HasName("user_social_login_pkey");
-
-            entity.ToTable("user_social_login");
-
-            entity.HasIndex(e => e.UserId, "idx_user_social_login_user_id");
-
-            entity.HasIndex(e => new { e.Provider, e.ProviderUserId }, "uq_social_provider_account").IsUnique();
-
-            entity.HasIndex(e => new { e.UserId, e.Provider }, "uq_user_social_provider").IsUnique();
-
-            entity.Property(e => e.UserSocialLoginId).HasColumnName("user_social_login_id");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("now()")
-                .HasColumnName("created_at");
-            entity.Property(e => e.Provider)
-                .IsRequired()
-                .HasMaxLength(50)
-                .HasColumnName("provider");
-            entity.Property(e => e.ProviderUserId)
-                .IsRequired()
-                .HasMaxLength(255)
-                .HasColumnName("provider_user_id");
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-
-            entity.HasOne(d => d.User).WithMany(p => p.UserSocialLogins)
-                .HasForeignKey(d => d.UserId)
-                .HasConstraintName("user_social_login_user_id_fkey");
+            entity.HasIndex(e => e.RefreshTokenHash, "ix_user_session_refresh_token_hash")
+                .IsUnique();
         });
 
         OnModelCreatingPartial(modelBuilder);

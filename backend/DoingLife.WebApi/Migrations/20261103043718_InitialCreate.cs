@@ -254,35 +254,14 @@ namespace DoingLife.WebApi.Migrations
                     user_id = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    revoked_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    revoked_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    refresh_token_hash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("user_session_pkey", x => x.user_session_id);
                     table.ForeignKey(
                         name: "user_session_user_id_fkey",
-                        column: x => x.user_id,
-                        principalTable: "users",
-                        principalColumn: "user_id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "user_social_login",
-                columns: table => new
-                {
-                    user_social_login_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    user_id = table.Column<int>(type: "integer", nullable: false),
-                    provider = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    provider_user_id = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("user_social_login_pkey", x => x.user_social_login_id);
-                    table.ForeignKey(
-                        name: "user_social_login_user_id_fkey",
                         column: x => x.user_id,
                         principalTable: "users",
                         principalColumn: "user_id",
@@ -344,26 +323,15 @@ namespace DoingLife.WebApi.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_user_session_refresh_token_hash",
+                table: "user_session",
+                column: "refresh_token_hash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ix_user_session_user_id",
                 table: "user_session",
                 column: "user_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_user_social_login_provider_provider_user_id",
-                table: "user_social_login",
-                columns: new[] { "provider", "provider_user_id" },
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "ix_user_social_login_user_id",
-                table: "user_social_login",
-                column: "user_id");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_user_social_login_user_id_provider",
-                table: "user_social_login",
-                columns: new[] { "user_id", "provider" },
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "EmailIndex",
@@ -412,9 +380,6 @@ namespace DoingLife.WebApi.Migrations
 
             migrationBuilder.DropTable(
                 name: "user_session");
-
-            migrationBuilder.DropTable(
-                name: "user_social_login");
 
             migrationBuilder.DropTable(
                 name: "identity_roles");

@@ -1,6 +1,7 @@
 ﻿namespace DoingLife.WebApi.ViewModel
 {
-    public class AuthResponse
+
+    public class AuthResponseView
     {
         public string AccessToken { get; set; } = string.Empty;
         public DateTime AccessTokenExpireAt { get; set; }

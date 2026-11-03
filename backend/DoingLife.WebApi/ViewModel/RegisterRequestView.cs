@@ -31,5 +31,5 @@ public class RegisterRequestView
     [Required(ErrorMessage = "Date of birth is required.")]
     public DateOnly? DateOfBirth { get; set; }
 
-    public bool AcceptedTerms { get; set; }
+    public bool AcceptedTerms { get; set; } = false;
 }

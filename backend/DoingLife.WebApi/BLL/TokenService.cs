@@ -46,7 +46,7 @@ public class TokenService : ITokenService
         return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
     }
 
-    public string CreateRefreshToken()
+    public string GenerateRefreshToken()
     {
         return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
     }

@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DoingLife.WebApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261029051136_InitialCreate")]
+    [Migration("20261103043718_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -364,6 +364,12 @@ namespace DoingLife.WebApi.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("expires_at");
 
+                    b.Property<string>("RefreshTokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("refresh_token_hash");
+
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("revoked_at");
@@ -378,55 +384,11 @@ namespace DoingLife.WebApi.Migrations
                     b.HasIndex(new[] { "UserId" }, "idx_user_session_user_id")
                         .HasDatabaseName("ix_user_session_user_id");
 
+                    b.HasIndex(new[] { "RefreshTokenHash" }, "ix_user_session_refresh_token_hash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_user_session_refresh_token_hash");
+
                     b.ToTable("user_session", (string)null);
-                });
-
-            modelBuilder.Entity("DoingLife.WebApi.Entities.UserSocialLogin", b =>
-                {
-                    b.Property<int>("UserSocialLoginId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("user_social_login_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("UserSocialLoginId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("now()");
-
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("provider");
-
-                    b.Property<string>("ProviderUserId")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("provider_user_id");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("user_id");
-
-                    b.HasKey("UserSocialLoginId")
-                        .HasName("user_social_login_pkey");
-
-                    b.HasIndex(new[] { "UserId" }, "idx_user_social_login_user_id")
-                        .HasDatabaseName("ix_user_social_login_user_id");
-
-                    b.HasIndex(new[] { "Provider", "ProviderUserId" }, "uq_social_provider_account")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_social_login_provider_provider_user_id");
-
-                    b.HasIndex(new[] { "UserId", "Provider" }, "uq_user_social_provider")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_social_login_user_id_provider");
-
-                    b.ToTable("user_social_login", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
@@ -640,18 +602,6 @@ namespace DoingLife.WebApi.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("DoingLife.WebApi.Entities.UserSocialLogin", b =>
-                {
-                    b.HasOne("DoingLife.WebApi.Entities.User", "User")
-                        .WithMany("UserSocialLogins")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("user_social_login_user_id_fkey");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
@@ -718,8 +668,6 @@ namespace DoingLife.WebApi.Migrations
                     b.Navigation("UserProfile");
 
                     b.Navigation("UserSessions");
-
-                    b.Navigation("UserSocialLogins");
                 });
 #pragma warning restore 612, 618
         }
