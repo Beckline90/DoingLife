@@ -87,4 +87,27 @@ public class AuthController : ControllerBase
             message = "If an unverified account exists with this email, a confirmation link will be sent."
         });
     }
+    // Log in with email and password
+    [HttpPost("login")]
+    public async Task<IActionResult> Login([FromBody] LoginRequestView request)
+    {
+        var clientInfo = new ClientInfoView
+        {
+            ClientIp = HttpContext.Connection.RemoteIpAddress?.ToString(),
+            UserAgent = Request.Headers.UserAgent.ToString()
+        };
+
+        var result = await _authService.LoginAsync(request, clientInfo);
+
+        if (!result.Succeeded)
+        {
+            return Unauthorized(new
+            {
+                errors = result.Errors
+            });
+        }
+
+        return Ok(result.Data);
+    }
+
 }

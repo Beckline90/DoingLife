@@ -158,6 +158,7 @@ namespace DoingLife.WebApi.BLL
         {
             const string genericError = "Invalid email or password.";
 
+
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password))
                 return SResult<AuthResponseView>.Failure(genericError);
 
@@ -165,7 +166,10 @@ namespace DoingLife.WebApi.BLL
 
             if (user == null)
             {
+                // Do comparable work to a real password check, so an unknown email
+                // takes about as long to answer as a wrong password.
                 _passwordHasher.HashPassword(new User(), request.Password);
+
                 await RecordLoginAttemptAsync(null, false, "Unknown email", clientInfo);
                 return SResult<AuthResponseView>.Failure(genericError);
             }
