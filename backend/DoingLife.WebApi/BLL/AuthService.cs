@@ -6,7 +6,6 @@ using DoingLife.WebApi.Shared.Helper;
 using DoingLife.WebApi.ViewModel;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
-using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Options;
 using System.Net;
 using System.Text;
@@ -15,17 +14,24 @@ namespace DoingLife.WebApi.BLL
 {
     public class AuthService : IAuthService
     {
-       private readonly UserManager<User> _userManager;
+        private readonly UserManager<User> _userManager;
         private readonly IEmailService _emailService;
         private readonly AppDbContext _context;
         private readonly IConfiguration _config;
         private readonly ITokenService _tokenService;
         private readonly JwtSettings _jwtSettings;
         private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly ILogger<AuthService> _logger;
 
-     
-
-        public AuthService(UserManager<User> userManager, IEmailService emailService, AppDbContext context, IConfiguration configuration, ITokenService tokenService, IOptions<JwtSettings> jwtSettings, IPasswordHasher<User> passwordHasher)
+        public AuthService(
+            UserManager<User> userManager,
+            IEmailService emailService,
+            AppDbContext context,
+            IConfiguration configuration,
+            ITokenService tokenService,
+            IOptions<JwtSettings> jwtSettings,
+            IPasswordHasher<User> passwordHasher,
+            ILogger<AuthService> logger)
         {
             _userManager = userManager;
             _emailService = emailService;
@@ -34,6 +40,7 @@ namespace DoingLife.WebApi.BLL
             _tokenService = tokenService;
             _jwtSettings = jwtSettings.Value;
             _passwordHasher = passwordHasher;
+            _logger = logger;
         }
 
         public async Task<SResult> RegisterAsync(RegisterRequestView request)
@@ -57,23 +64,29 @@ namespace DoingLife.WebApi.BLL
             {
                 return SResult.Failure("You must accept the Terms of Service and Privacy Policy.");
             }
-            var existingUser = await _userManager.FindByEmailAsync(request.Email);
+
+            // Normalize once and use the same value everywhere
+            var email = request.Email.Trim().ToLowerInvariant();
+
+            var existingUser = await _userManager.FindByEmailAsync(email);
             if (existingUser != null)
             {
                 return SResult.Failure("Email is already registered.");
             }
-            
+
             var user = new User
             {
-                UserName = request.Email,
-                Email = request.Email.ToLowerInvariant(),
+                UserName = email,
+                Email = email,
                 FirstName = request.FirstName.Trim(),
-                LastName = request.LastName.Trim(), 
+                LastName = request.LastName.Trim(),
                 IsActive = true,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+
             // The user, profile and preference rows are saved together or not at all.
+            // If we return early, disposing the transaction rolls it back.
             await using var transaction = await _context.Database.BeginTransactionAsync();
 
             var result = await _userManager.CreateAsync(user, request.Password);
@@ -83,17 +96,20 @@ namespace DoingLife.WebApi.BLL
             }
 
             _context.UserProfiles.Add(new UserProfile { UserId = user.Id, DateOfBirth = request.DateOfBirth });
-            _context.UserPreferences.Add(new UserPreference { UserId = user.Id, TimeZone = "UTC"});
+            _context.UserPreferences.Add(new UserPreference { UserId = user.Id, TimeZone = "UTC" });
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
+
+            // The account exists now, so a failed email must not fail registration.
             await SendConfirmationEmailAsync(user);
             return SResult.Success();
         }
 
         public async Task<SResult> ConfirmEmailAsync(int userId, string token)
         {
-            var invalid = SResult.Failure(new[] { "This Confirmation link is invalid or has expired." });
+            var invalid = SResult.Failure("This confirmation link is invalid or has expired.");
+
             var user = await _userManager.FindByIdAsync(userId.ToString());
             if (user == null)
             {
@@ -116,17 +132,14 @@ namespace DoingLife.WebApi.BLL
 
         public async Task<SResult> ResendConfirmationAsync(string email)
         {
-            // Check if email is empty or null
             if (string.IsNullOrWhiteSpace(email))
             {
                 return SResult.Success();
             }
 
-            // Find the user by email
             var user = await _userManager.FindByEmailAsync(email.Trim());
 
-            // Only send confirmation if user exists
-            // and email has not been confirmed
+            // Always return success so nobody can probe which emails are registered.
             if (user != null && !user.EmailConfirmed)
             {
                 await SendConfirmationEmailAsync(user);
@@ -135,29 +148,9 @@ namespace DoingLife.WebApi.BLL
             return SResult.Success();
         }
 
-        private async Task SendConfirmationEmailAsync(User user)
-        {
-            if (string.IsNullOrWhiteSpace(user.Email))
-                return;
-            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-            var baseUrl = _config["App:BaseUrl"];
-            var link = $"{baseUrl}/api/auth/confirm-email?userId={user.Id}&token={encodedToken}";
-
-            var body = $"""
-            <p>Hi {WebUtility.HtmlEncode(user.FirstName)},</p>
-            <p>Please confirm your email to start using Doing Life:</p>
-            <p><a href="{link}">Confirm my email</a></p>
-            """;
-
-            await _emailService.SendAsync(user.Email, "Confirm your email", body);
-        }
-
         public async Task<SResult<AuthResponseView>> LoginAsync(LoginRequestView request, ClientInfoView clientInfo)
         {
             const string genericError = "Invalid email or password.";
-
 
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password))
                 return SResult<AuthResponseView>.Failure(genericError);
@@ -183,13 +176,22 @@ namespace DoingLife.WebApi.BLL
 
             if (!await _userManager.CheckPasswordAsync(user, request.Password))
             {
-                await _userManager.AccessFailedAsync(user);
+                var failed = await _userManager.AccessFailedAsync(user);
+                if (!failed.Succeeded)
+                {
+                    _logger.LogWarning("Could not record a failed login for user {UserId}", user.Id);
+                }
+
                 await RecordLoginAttemptAsync(user.Id, false, "Wrong password", clientInfo);
                 return SResult<AuthResponseView>.Failure(genericError);
             }
 
             // Correct password: clear the failed-attempt counter
-            await _userManager.ResetAccessFailedCountAsync(user);
+            var reset = await _userManager.ResetAccessFailedCountAsync(user);
+            if (!reset.Succeeded)
+            {
+                _logger.LogWarning("Could not reset the failed-login counter for user {UserId}", user.Id);
+            }
 
             if (!user.IsActive || user.IsDeleted)
             {
@@ -238,6 +240,40 @@ namespace DoingLife.WebApi.BLL
             });
         }
 
+        private async Task SendConfirmationEmailAsync(User user)
+        {
+            if (string.IsNullOrWhiteSpace(user.Email))
+                return;
+
+            try
+            {
+                var baseUrl = _config["App:BaseUrl"];
+                if (string.IsNullOrWhiteSpace(baseUrl))
+                {
+                    _logger.LogError("App:BaseUrl is not configured, so no confirmation link can be built.");
+                    return;
+                }
+
+                var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                var link = $"{baseUrl.TrimEnd('/')}/api/auth/confirm-email?userId={user.Id}&token={encodedToken}";
+
+                var body = $"""
+                <p>Hi {WebUtility.HtmlEncode(user.FirstName)},</p>
+                <p>Please confirm your email to start using Doing Life:</p>
+                <p><a href="{link}">Confirm my email</a></p>
+                """;
+
+                await _emailService.SendAsync(user.Email, "Confirm your email", body);
+            }
+            catch (Exception ex)
+            {
+                // Never let an email problem break registration or reveal that an account exists.
+                // The user can ask for another email with the resend endpoint.
+                _logger.LogError(ex, "Could not send the confirmation email for user {UserId}", user.Id);
+            }
+        }
+
         private async Task RecordLoginAttemptAsync(int? userId, bool isSuccessful, string? failureReason, ClientInfoView clientInfo)
         {
             _context.UserLoginHistories.Add(BuildHistory(userId, isSuccessful, failureReason, clientInfo));
@@ -260,6 +296,5 @@ namespace DoingLife.WebApi.BLL
 
         private static string? Truncate(string? value, int maxLength) =>
             value is null ? null : (value.Length <= maxLength ? value : value[..maxLength]);
-
     }
 }

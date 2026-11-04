@@ -1,18 +1,19 @@
+using Azure.Communication.Email;
 using DoingLife.WebApi.BLL;
 using DoingLife.WebApi.BLL.Helper;
 using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
 using DoingLife.WebApi.Shared.Helper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpLogging;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace DoingLife.WebApi
 {
@@ -31,16 +32,19 @@ namespace DoingLife.WebApi
             // Configure ASP.NET Core Identity
             ConfigureIdentity(builder);
 
-            // Configure JWT authentication
+            // Configure JWT creation and validation
             ConfigureJwt(builder);
             ConfigureAuthentication(builder);
+
+            // Configure email (console in development, Azure otherwise)
+            ConfigureEmail(builder);
+
+            // Application services
+            builder.Services.AddScoped<IAuthService, AuthService>();
 
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
-
-            builder.Services.AddScoped<IAuthService, AuthService>();
-            builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
 
             // Configure HTTP logging
             builder.Services.AddHttpLogging(options =>
@@ -61,36 +65,32 @@ namespace DoingLife.WebApi
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
+            }
 
+            app.UseHttpsRedirection();
 
-                app.UseHttpsRedirection();
+            // HTTP request logging
+            app.UseHttpLogging();
 
-                // HTTP request logging
-                app.UseHttpLogging();
+            // Authentication must come before authorization
+            app.UseAuthentication();
+            app.UseAuthorization();
 
-                // Authentication and authorization middleware
-                app.UseAuthentication();
-                app.UseAuthorization();
-
-
-                // Health endpoint
-                app.MapGet("/", () =>
+            // Health endpoint
+            app.MapGet("/", () =>
                 Results.Ok("Doing Life API is running!"));
 
-                // Controller endpoints
-                app.MapControllers();
+            // Controller endpoints
+            app.MapControllers();
 
-                app.Run();
-            }
+            app.Run();
         }
 
         // PostgreSQL dependency injection
-        private static void ConfigureDatabase(
-            WebApplicationBuilder builder)
+        private static void ConfigureDatabase(WebApplicationBuilder builder)
         {
             var connectionString =
-                builder.Configuration.GetConnectionString(
-                    "DefaultConnection");
+                builder.Configuration.GetConnectionString("DefaultConnection");
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
@@ -105,8 +105,7 @@ namespace DoingLife.WebApi
         }
 
         // ASP.NET Core Identity registration
-        private static void ConfigureIdentity(
-            WebApplicationBuilder builder)
+        private static void ConfigureIdentity(WebApplicationBuilder builder)
         {
             builder.Services.AddDataProtection();
 
@@ -125,6 +124,7 @@ namespace DoingLife.WebApi
                 .AddDefaultTokenProviders();
         }
 
+        // JWT settings, validated when the app starts
         private static void ConfigureJwt(WebApplicationBuilder builder)
         {
             builder.Services
@@ -181,6 +181,39 @@ namespace DoingLife.WebApi
                         RoleClaimType = ClaimTypes.Role
                     };
                 });
+        }
+
+        // Console email in development, Azure Communication Services otherwise.
+        // To test real email locally, set AzureEmail:Enabled to true in user secrets.
+        private static void ConfigureEmail(WebApplicationBuilder builder)
+        {
+            var useAzure =
+                !builder.Environment.IsDevelopment() ||
+                builder.Configuration.GetValue<bool>("AzureEmail:Enabled");
+
+            if (!useAzure)
+            {
+                builder.Services.AddScoped<IEmailService, ConsoleEmailService>();
+                return;
+            }
+
+            var connectionString = builder.Configuration["AzureEmail:ConnectionString"];
+            var senderAddress = builder.Configuration["AzureEmail:SenderAddress"];
+
+            if (string.IsNullOrWhiteSpace(connectionString))
+            {
+                throw new InvalidOperationException(
+                    "AzureEmail:ConnectionString is missing. Set it in user secrets or app settings.");
+            }
+
+            if (string.IsNullOrWhiteSpace(senderAddress))
+            {
+                throw new InvalidOperationException(
+                    "AzureEmail:SenderAddress is missing.");
+            }
+
+            builder.Services.AddSingleton(new EmailClient(connectionString));
+            builder.Services.AddScoped<IEmailService, AzureEmailService>();
         }
     }
 }
