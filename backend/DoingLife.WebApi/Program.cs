@@ -15,10 +15,10 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.IdentityModel.Tokens.Jwt;
-using System.Net;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
+using Azure.Identity;
 
 namespace DoingLife.WebApi
 {
@@ -174,16 +174,21 @@ namespace DoingLife.WebApi
             app.Run();
         }
 
+
         // PostgreSQL dependency injection
         private static void ConfigureDatabase(WebApplicationBuilder builder)
         {
+            var connectionName = builder.Environment.IsDevelopment()
+                ? "DefaultConnection"
+                : "AzureConnection";
+
             var connectionString =
-                builder.Configuration.GetConnectionString("DefaultConnection");
+                builder.Configuration.GetConnectionString(connectionName);
 
             if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new InvalidOperationException(
-                    "DefaultConnection is missing from configuration.");
+                    $"{connectionName} is missing from configuration.");
             }
 
             builder.Services.AddDbContext<AppDbContext>(
@@ -192,11 +197,31 @@ namespace DoingLife.WebApi
                     .UseSnakeCaseNamingConvention());
         }
 
+
         // ASP.NET Core Identity registration
         private static void ConfigureIdentity(WebApplicationBuilder builder)
         {
 
-            builder.Services.AddDataProtection().SetApplicationName("DoingLife");
+            // Configure ASP.NET Core Data Protection.
+            // These keys protect email confirmation and password reset tokens.
+            var dataProtection = builder.Services.AddDataProtection().SetApplicationName("DoingLife");
+
+            // In Azure, persist the keys in Blob Storage so they survive
+            // application restarts, deployments, and instance replacements.
+            if (!builder.Environment.IsDevelopment())
+            {
+                var blobUri = builder.Configuration["DataProtection:BlobUri"];
+
+                if (string.IsNullOrWhiteSpace(blobUri))
+                {
+                    throw new InvalidOperationException(
+                        "DataProtection:BlobUri is missing from configuration.");
+                }
+
+                dataProtection.PersistKeysToAzureBlobStorage(
+                    new Uri(blobUri),
+                    new DefaultAzureCredential());
+            }
 
 
             builder.Services
