@@ -1,6 +1,7 @@
 ﻿using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.ViewModel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace DoingLife.WebApi.Controllers;
 
@@ -17,6 +18,7 @@ public class AuthController : ControllerBase
 
     // Register a new user
     [HttpPost("register")]
+    [EnableRateLimiting("AuthRateLimit")]
     public async Task<IActionResult> Register(
         [FromBody] RegisterRequestView request)
     {
@@ -38,6 +40,7 @@ public class AuthController : ControllerBase
 
     // Confirm user's email address
     [HttpGet("confirm-email")]
+    [EnableRateLimiting("AuthRateLimit")]
     public async Task<IActionResult> ConfirmEmail(
         [FromQuery] int userId,
         [FromQuery] string token)
@@ -77,6 +80,7 @@ public class AuthController : ControllerBase
 
     // Resend email confirmation link
     [HttpPost("resend-confirmation")]
+    [EnableRateLimiting("AuthRateLimit")]
     public async Task<IActionResult> ResendConfirmation(
         [FromBody] EmailRequestView request)
     {
@@ -89,6 +93,7 @@ public class AuthController : ControllerBase
     }
     // Log in with email and password
     [HttpPost("login")]
+    [EnableRateLimiting("AuthRateLimit")]
     public async Task<IActionResult> Login([FromBody] LoginRequestView request)
     {
         var clientInfo = new ClientInfoView

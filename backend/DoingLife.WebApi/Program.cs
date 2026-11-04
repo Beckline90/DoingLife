@@ -6,14 +6,19 @@ using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
 using DoingLife.WebApi.Shared.Helper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 
 namespace DoingLife.WebApi
 {
@@ -44,7 +49,26 @@ namespace DoingLife.WebApi
 
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter your JWT access token."
+                });
+
+                options.AddSecurityRequirement(document =>
+                    new OpenApiSecurityRequirement
+                    {
+                        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+                    });
+            });
+
 
             // Configure HTTP logging
             builder.Services.AddHttpLogging(options =>
@@ -58,23 +82,87 @@ namespace DoingLife.WebApi
                 options.CombineLogs = true;
             });
 
+
+            var allowedOrigins = builder.Configuration
+                .GetSection("Cors:AllowedOrigins")
+                .Get<string[]>() ?? [];
+
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("DoingLifeCors", policy =>
+                {
+                    policy
+                        .WithOrigins(allowedOrigins)
+                        .AllowAnyHeader()
+                        .AllowAnyMethod();
+                });
+            });
+
+
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode =
+                    StatusCodes.Status429TooManyRequests;
+
+                options.AddPolicy("AuthRateLimit", context =>
+                    RateLimitPartition.GetFixedWindowLimiter(
+                        partitionKey:
+                            context.Connection.RemoteIpAddress?.ToString()
+                            ?? "unknown",
+                        factory: _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = 5,
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0,
+                            AutoReplenishment = true
+                        }));
+            });
+
+
+            builder.Services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders =
+                    ForwardedHeaders.XForwardedFor |
+                    ForwardedHeaders.XForwardedProto;
+
+                options.ForwardLimit = 1;
+
+                // Add the actual trusted Azure proxy address or network
+                // when the hosting configuration is known.
+            });
+
+
+
             var app = builder.Build();
 
-            // Development tools
-            if (app.Environment.IsDevelopment())
+            // Enable Swagger based on configuration
+            if (builder.Configuration.GetValue<bool>("Swagger:Enabled"))
             {
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+            // Process forwarded headers from trusted reverse proxies
+            app.UseForwardedHeaders();
 
+            // Redirect HTTP requests to HTTPS for secure communication
             app.UseHttpsRedirection();
 
-            // HTTP request logging
+            // Log HTTP requests and responses for monitoring and debugging
             app.UseHttpLogging();
 
-            // Authentication must come before authorization
+            // Allow requests from approved frontend origins (React and Next.js)
+            app.UseCors("DoingLifeCors");
+
+            // Validate JWT tokens and identify authenticated users
             app.UseAuthentication();
+
+            // Limit incoming requests to protect the API from abuse
+            app.UseRateLimiter();
+
+            // Check whether authenticated users have permission to access endpoints
             app.UseAuthorization();
+
+
 
             // Health endpoint
             app.MapGet("/", () =>
@@ -107,7 +195,9 @@ namespace DoingLife.WebApi
         // ASP.NET Core Identity registration
         private static void ConfigureIdentity(WebApplicationBuilder builder)
         {
-            builder.Services.AddDataProtection();
+
+            builder.Services.AddDataProtection().SetApplicationName("DoingLife");
+
 
             builder.Services
                 .AddIdentityCore<User>(options =>
