@@ -1,8 +1,8 @@
 ﻿using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.ViewModel;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
-
 namespace DoingLife.WebApi.Controllers;
 
 [ApiController]
@@ -38,44 +38,19 @@ public class AuthController : ControllerBase
         });
     }
 
-    // Confirm user's email address
-    [HttpGet("confirm-email")]
+    // Called by the front-end verify-email page
+    [HttpPost("confirm-email")]
     [EnableRateLimiting("AuthRateLimit")]
-    public async Task<IActionResult> ConfirmEmail(
-        [FromQuery] int userId,
-        [FromQuery] string token)
+    public async Task<IActionResult> ConfirmEmailFromApp([FromBody] ConfirmEmailRequestView request)
     {
-        var result = await _authService.ConfirmEmailAsync(userId, token);
+        var result = await _authService.ConfirmEmailAsync(request.UserId, request.Token);
 
-        var title = result.Succeeded
-            ? "Email verified"
-            : "Verification failed";
-
-        var message = result.Succeeded
-            ? "Email verified. You can close this window and return to the app."
-            : "This confirmation link is invalid or has expired. Please request a new one from the app.";
-
-        var html = $"""
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>Doing Life - Email Verification</title>
-            </head>
-            <body style="font-family: sans-serif; text-align: center; margin-top: 15vh;">
-                <h2>{title}</h2>
-                <p>{message}</p>
-            </body>
-            </html>
-            """;
-
-        return new ContentResult
+        if (!result.Succeeded)
         {
-            Content = html,
-            ContentType = "text/html; charset=utf-8",
-            StatusCode = result.Succeeded ? 200 : 400
-        };
+            return BadRequest(new { errors = result.Errors });
+        }
+
+        return Ok(new { message = "Email verified." });
     }
 
     // Resend email confirmation link
@@ -113,6 +88,48 @@ public class AuthController : ControllerBase
         }
 
         return Ok(result.Data);
+    }
+
+    // Swap a refresh token for a new access token and a new refresh token
+    [HttpPost("refresh")]
+    [EnableRateLimiting("RefreshRateLimit")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestView request)
+    {
+        var result = await _authService.RefreshTokenAsync(request.Refreshtoken);
+
+        if (!result.Succeeded)
+        {
+            return Unauthorized(new { errors = result.Errors });
+        }
+
+        return Ok(result.Data);
+    }
+
+    // End one session. No [Authorize] on purpose: the access token has often
+    // expired by the time someone logs out, and the refresh token is the proof.
+    [HttpPost("logout")]
+
+    [EnableRateLimiting("RefreshRateLimit")]
+    public async Task<IActionResult> Logout([FromBody] RefreshTokenRequestView request)
+    {
+        await _authService.LogoutAsync(request.Refreshtoken);
+        return Ok(new { message = "Logged out." });
+    }
+
+    // End every session for the signed-in user (log out of all devices)
+    [Authorize]
+    [HttpPost("logout-all")]
+    public async Task<IActionResult> LogoutAll()
+    {
+        var sub = HttpContext.User.FindFirst("sub")?.Value;
+
+        if (!int.TryParse(sub, out var userId))
+        {
+            return Unauthorized();
+        }
+
+        await _authService.LogoutAllAsync(userId);
+        return Ok(new { message = "Logged out of all devices." });
     }
 
 }

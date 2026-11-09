@@ -7,6 +7,7 @@ using DoingLife.WebApi.ViewModel;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using System.Net;
 using System.Text;
 
@@ -207,6 +208,105 @@ namespace DoingLife.WebApi.BLL
                     "Please verify your email before logging in.");
             }
 
+            _context.UserLoginHistories.Add(BuildHistory(user.Id, true, null, clientInfo));
+
+            var response = await IssueTokensAsync(user);
+            await _context.SaveChangesAsync();
+
+            return SResult<AuthResponseView>.Success(response);
+        }
+
+        public async Task<SResult<AuthResponseView>> RefreshTokenAsync(string refreshToken)
+        {
+            const string invalid = "Invalid or expired session. Please log in again.";
+
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return SResult<AuthResponseView>.Failure(invalid);
+
+            var hash = _tokenService.HashRefreshToken(refreshToken);
+            var session = await _context.UserSessions
+                .FirstOrDefaultAsync(s => s.RefreshTokenHash == hash);
+
+            if (session == null)
+                return SResult<AuthResponseView>.Failure(invalid);
+
+            // A revoked token was presented again: either a client bug or a stolen token.
+            // End every session for this user so the thief's copy stops working too.
+            if (session.RevokedAt != null)
+            {
+                await RevokeAllSessionsAsync(session.UserId);
+                _logger.LogWarning("A revoked refresh token was reused. All sessions revoked for user {UserId}", session.UserId);
+                return SResult<AuthResponseView>.Failure(invalid);
+            }
+
+            var now = DateTime.UtcNow;
+            if (session.ExpiresAt <= now)
+                return SResult<AuthResponseView>.Failure(invalid);
+
+            // The account must still be allowed to sign in
+            var user = await _userManager.FindByIdAsync(session.UserId.ToString());
+            if (user == null
+                || !user.IsActive
+                || user.IsDeleted
+                || !user.EmailConfirmed
+                || await _userManager.IsLockedOutAsync(user))
+            {
+                await RevokeSessionAsync(session.UserSessionId);
+                return SResult<AuthResponseView>.Failure(invalid);
+            }
+
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            // Claim the old session with one update that only succeeds if it is still
+            // unrevoked. If two requests race with the same token, only one gets 1 row.
+            var claimed = await _context.UserSessions
+                .Where(s => s.UserSessionId == session.UserSessionId && s.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, (DateTime?)now));
+
+            if (claimed == 0)
+            {
+                // Roll back first, otherwise the revoke below would be undone with it
+                await transaction.RollbackAsync();
+                await RevokeAllSessionsAsync(session.UserId);
+                _logger.LogWarning("Concurrent reuse of a refresh token. All sessions revoked for user {UserId}", session.UserId);
+                return SResult<AuthResponseView>.Failure(invalid);
+            }
+
+            var response = await IssueTokensAsync(user);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            return SResult<AuthResponseView>.Success(response);
+        }
+
+        public async Task<SResult> LogoutAsync(string refreshToken)
+        {
+            // Always succeed, so logging out twice is harmless and reveals nothing
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                return SResult.Success();
+
+            var hash = _tokenService.HashRefreshToken(refreshToken);
+
+            // Delete the session instead of revoking it. If the client later sends this
+            // token to /refresh by mistake, it finds nothing and fails quietly, instead of
+            // being treated as theft and signing the user out of every device.
+            await _context.UserSessions
+                .Where(s => s.RefreshTokenHash == hash)
+                .ExecuteDeleteAsync();
+
+            return SResult.Success();
+        }
+
+        public async Task<SResult> LogoutAllAsync(int userId)
+        {
+            await RevokeAllSessionsAsync(userId);
+            return SResult.Success();
+        }
+
+        // Builds the tokens and ADDS the new session, but does not save.
+        // The caller saves, so login and refresh can each do it as one unit.
+        private async Task<AuthResponseView> IssueTokensAsync(User user)
+        {
             var roles = await _userManager.GetRolesAsync(user);
             var (accessToken, accessTokenExpiresAt) = _tokenService.CreateAccessToken(user, roles);
             var refreshToken = _tokenService.GenerateRefreshToken();
@@ -221,10 +321,7 @@ namespace DoingLife.WebApi.BLL
                 ExpiresAt = now.AddDays(_jwtSettings.RefreshTokenExpirationDays)
             });
 
-            _context.UserLoginHistories.Add(BuildHistory(user.Id, true, null, clientInfo));
-            await _context.SaveChangesAsync();
-
-            return SResult<AuthResponseView>.Success(new AuthResponseView
+            return new AuthResponseView
             {
                 AccessToken = accessToken,
                 AccessTokenExpireAt = accessTokenExpiresAt,
@@ -237,8 +334,25 @@ namespace DoingLife.WebApi.BLL
                     LastName = user.LastName,
                     EmailConfirmed = user.EmailConfirmed
                 }
-            });
+            };
         }
+
+        private async Task RevokeAllSessionsAsync(int userId)
+        {
+            var now = DateTime.UtcNow;
+            await _context.UserSessions
+                .Where(s => s.UserId == userId && s.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, (DateTime?)now));
+        }
+
+        private async Task RevokeSessionAsync(int sessionId)
+        {
+            var now = DateTime.UtcNow;
+            await _context.UserSessions
+                .Where(s => s.UserSessionId == sessionId && s.RevokedAt == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, (DateTime?)now));
+        }
+
 
         private async Task SendConfirmationEmailAsync(User user)
         {
@@ -247,22 +361,22 @@ namespace DoingLife.WebApi.BLL
 
             try
             {
-                var baseUrl = _config["App:BaseUrl"];
-                if (string.IsNullOrWhiteSpace(baseUrl))
+                var frontendUrl = _config["App:FrontendUrl"];
+                if (string.IsNullOrWhiteSpace(frontendUrl))
                 {
-                    _logger.LogError("App:BaseUrl is not configured, so no confirmation link can be built.");
+                    _logger.LogError("App:FrontendUrl is not configured, so no confirmation link can be built.");
                     return;
                 }
 
                 var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
                 var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-                var link = $"{baseUrl.TrimEnd('/')}/api/auth/confirm-email?userId={user.Id}&token={encodedToken}";
+                var link = $"{frontendUrl.TrimEnd('/')}/verify-email?userId={user.Id}&token={encodedToken}";
 
                 var body = $"""
-                <p>Hi {WebUtility.HtmlEncode(user.FirstName)},</p>
-                <p>Please confirm your email to start using Doing Life:</p>
-                <p><a href="{link}">Confirm my email</a></p>
-                """;
+        <p>Hi {WebUtility.HtmlEncode(user.FirstName)},</p>
+        <p>Please confirm your email to start using Doing Life:</p>
+        <p><a href="{link}">Confirm my email</a></p>
+        """;
 
                 await _emailService.SendAsync(user.Email, "Confirm your email", body);
             }

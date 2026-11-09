@@ -116,6 +116,16 @@ namespace DoingLife.WebApi
                             QueueLimit = 0,
                             AutoReplenishment = true
                         }));
+                options.AddPolicy("RefreshRateLimit", context =>
+    RateLimitPartition.GetFixedWindowLimiter(
+        partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        factory: _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
+            Window = TimeSpan.FromMinutes(1),
+            QueueLimit = 0,
+            AutoReplenishment = true
+        }));
             });
 
 

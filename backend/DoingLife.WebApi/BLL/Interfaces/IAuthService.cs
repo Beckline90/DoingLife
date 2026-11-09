@@ -8,5 +8,8 @@ namespace DoingLife.WebApi.BLL.Interfaces
         Task<SResult> ConfirmEmailAsync(int userId, string token);
         Task<SResult> ResendConfirmationAsync(string email);
         Task<SResult<AuthResponseView>> LoginAsync(LoginRequestView request, ClientInfoView clientInfo);
+        Task<SResult<AuthResponseView>> RefreshTokenAsync(string refreshToken);
+        Task<SResult> LogoutAsync(string refreshToken);
+        Task<SResult> LogoutAllAsync(int userId);
     }
 }
