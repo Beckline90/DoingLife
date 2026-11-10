@@ -150,7 +150,7 @@ In development, verification and reset emails are written to the console instead
 ## Team
 
 - **Backend:** Beckline Matuke
-- **Front end:** built separately by a front-end developer(Jaxsen Gunter)
+- **Front end:** built separately by a front-end developer: https://doinglifeapp-production.up.railway.app
 
 ## Author
 
