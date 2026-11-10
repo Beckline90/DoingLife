@@ -1,3 +1,4 @@
 <Solution>
+  <Project Path="../DoingLife.WebApi.Tests/DoingLife.WebApi.Tests.csproj" />
   <Project Path="DoingLife.WebApi.csproj" />
 </Solution>
