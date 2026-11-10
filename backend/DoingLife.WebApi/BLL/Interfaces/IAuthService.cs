@@ -11,5 +11,7 @@ namespace DoingLife.WebApi.BLL.Interfaces
         Task<SResult<AuthResponseView>> RefreshTokenAsync(string refreshToken);
         Task<SResult> LogoutAsync(string refreshToken);
         Task<SResult> LogoutAllAsync(int userId);
+        Task<SResult> ForgotPasswordAsync(string email);
+        Task<SResult> ResetPasswordAsync(int userId, string token, string newPassword);
     }
 }

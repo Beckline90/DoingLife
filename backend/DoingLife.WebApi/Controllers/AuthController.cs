@@ -1,4 +1,6 @@
 ﻿using DoingLife.WebApi.BLL.Interfaces;
+using DoingLife.WebApi.Shared.Constant;
+using DoingLife.WebApi.Shared.Helper;
 using DoingLife.WebApi.ViewModel;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -23,13 +25,9 @@ public class AuthController : ControllerBase
         [FromBody] RegisterRequestView request)
     {
         var result = await _authService.RegisterAsync(request);
-
         if (!result.Succeeded)
         {
-            return BadRequest(new
-            {
-                errors = result.Errors
-            });
+            return BadRequest(new { code = result.ErrorCode, errors = result.Errors });
         }
 
         return Ok(new
@@ -47,9 +45,8 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
         {
-            return BadRequest(new { errors = result.Errors });
+            return BadRequest(new { code = result.ErrorCode, errors = result.Errors });
         }
-
         return Ok(new { message = "Email verified." });
     }
 
@@ -81,12 +78,8 @@ public class AuthController : ControllerBase
 
         if (!result.Succeeded)
         {
-            return Unauthorized(new
-            {
-                errors = result.Errors
-            });
+            return LoginFailure(result);
         }
-
         return Ok(result.Data);
     }
 
@@ -130,6 +123,52 @@ public class AuthController : ControllerBase
 
         await _authService.LogoutAllAsync(userId);
         return Ok(new { message = "Logged out of all devices." });
+    }
+
+    // Start a password reset: always answers the same way
+    [HttpPost("forgot-password")]
+    [EnableRateLimiting("AuthRateLimit")]
+    public async Task<IActionResult> ForgotPassword([FromBody] EmailRequestView request)
+    {
+        await _authService.ForgotPasswordAsync(request.Email);
+
+        return Ok(new
+        {
+            message = "If an account exists with this email, a reset link will be sent."
+        });
+    }
+
+    // Finish a password reset from the front-end page
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("AuthRateLimit")]
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequestView request)
+    {
+        var result = await _authService.ResetPasswordAsync(
+            request.UserId, request.Token, request.NewPassword);
+
+        if (!result.Succeeded)
+        {
+            return BadRequest(new { code = result.ErrorCode, errors = result.Errors });
+        }
+
+        return Ok(new { message = "Password updated. Please log in." });
+    }
+
+
+
+
+    private IActionResult LoginFailure(SResult result)
+    {
+        var body = new { code = result.ErrorCode, errors = result.Errors };
+
+        return result.ErrorCode switch
+        {
+            ErrorCodes.EmailNotVerified or ErrorCodes.AccountUnavailable
+                => StatusCode(StatusCodes.Status403Forbidden, body),
+            ErrorCodes.AccountLocked
+                => StatusCode(StatusCodes.Status423Locked, body),
+            _ => Unauthorized(body)
+        };
     }
 
 }

@@ -52,18 +52,17 @@ namespace DoingLife.WebApi.BLL
 
             if (dateOfBirth > today || age > AppRules.MaxAge)
             {
-                return SResult.Failure("Please enter a valid date of birth.");
+                return SResult.Failure("Please enter a valid date of birth.", ErrorCodes.InvalidDateOfBirth);
             }
 
             if (age < AppRules.MinAge)
             {
-                return SResult.Failure(
-                    "You must be 18 or older to create an account. Support for younger users with parental consent is coming soon.");
+                return SResult.Failure("You must be 18 or older to create an account. Support for younger users with parental consent is coming soon.",ErrorCodes.UnderAge);
             }
 
             if (!request.AcceptedTerms)
             {
-                return SResult.Failure("You must accept the Terms of Service and Privacy Policy.");
+                return SResult.Failure("You must accept the Terms of Service and Privacy Policy.", ErrorCodes.TermsNotAccepted);
             }
 
             // Normalize once and use the same value everywhere
@@ -72,7 +71,7 @@ namespace DoingLife.WebApi.BLL
             var existingUser = await _userManager.FindByEmailAsync(email);
             if (existingUser != null)
             {
-                return SResult.Failure("Email is already registered.");
+                return SResult.Failure("Email is already registered.", ErrorCodes.EmailAlreadyRegistered);
             }
 
             var user = new User
@@ -93,7 +92,8 @@ namespace DoingLife.WebApi.BLL
             var result = await _userManager.CreateAsync(user, request.Password);
             if (!result.Succeeded)
             {
-                return SResult.Failure(result.Errors.Select(e => e.Description).ToArray());
+                var code = result.Errors.Any(e => e.Code.StartsWith("Password")) ? ErrorCodes.WeakPassword : null;
+                return SResult.Failure(result.Errors.Select(e => e.Description).ToArray(), code);
             }
 
             _context.UserProfiles.Add(new UserProfile { UserId = user.Id, DateOfBirth = request.DateOfBirth });
@@ -151,10 +151,11 @@ namespace DoingLife.WebApi.BLL
 
         public async Task<SResult<AuthResponseView>> LoginAsync(LoginRequestView request, ClientInfoView clientInfo)
         {
-            const string genericError = "Invalid email or password.";
+            var invalidCredentials = SResult<AuthResponseView>.Failure(
+                "Invalid email or password.", ErrorCodes.InvalidCredentials);
 
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password))
-                return SResult<AuthResponseView>.Failure(genericError);
+                return invalidCredentials;
 
             var user = await _userManager.FindByEmailAsync(request.Email.Trim());
 
@@ -165,14 +166,14 @@ namespace DoingLife.WebApi.BLL
                 _passwordHasher.HashPassword(new User(), request.Password);
 
                 await RecordLoginAttemptAsync(null, false, "Unknown email", clientInfo);
-                return SResult<AuthResponseView>.Failure(genericError);
+                return invalidCredentials;
             }
 
             if (await _userManager.IsLockedOutAsync(user))
             {
                 await RecordLoginAttemptAsync(user.Id, false, "Account locked", clientInfo);
                 return SResult<AuthResponseView>.Failure(
-                    "Account temporarily locked. Please try again later.");
+                    "Account temporarily locked. Please try again later.", ErrorCodes.AccountLocked);
             }
 
             if (!await _userManager.CheckPasswordAsync(user, request.Password))
@@ -184,7 +185,7 @@ namespace DoingLife.WebApi.BLL
                 }
 
                 await RecordLoginAttemptAsync(user.Id, false, "Wrong password", clientInfo);
-                return SResult<AuthResponseView>.Failure(genericError);
+                return invalidCredentials;
             }
 
             // Correct password: clear the failed-attempt counter
@@ -198,14 +199,14 @@ namespace DoingLife.WebApi.BLL
             {
                 await RecordLoginAttemptAsync(user.Id, false, "Inactive or deleted account", clientInfo);
                 return SResult<AuthResponseView>.Failure(
-                    "This account is unavailable. Please contact support.");
+                    "This account is unavailable. Please contact support.", ErrorCodes.AccountUnavailable);
             }
 
             if (!user.EmailConfirmed)
             {
                 await RecordLoginAttemptAsync(user.Id, false, "Email not confirmed", clientInfo);
                 return SResult<AuthResponseView>.Failure(
-                    "Please verify your email before logging in.");
+                    "Please verify your email before logging in.", ErrorCodes.EmailNotVerified);
             }
 
             _context.UserLoginHistories.Add(BuildHistory(user.Id, true, null, clientInfo));
@@ -215,7 +216,6 @@ namespace DoingLife.WebApi.BLL
 
             return SResult<AuthResponseView>.Success(response);
         }
-
         public async Task<SResult<AuthResponseView>> RefreshTokenAsync(string refreshToken)
         {
             const string invalid = "Invalid or expired session. Please log in again.";
@@ -385,6 +385,107 @@ namespace DoingLife.WebApi.BLL
                 // Never let an email problem break registration or reveal that an account exists.
                 // The user can ask for another email with the resend endpoint.
                 _logger.LogError(ex, "Could not send the confirmation email for user {UserId}", user.Id);
+            }
+        }
+
+        public async Task<SResult> ForgotPasswordAsync(string email)
+        {
+            if (string.IsNullOrWhiteSpace(email))
+            {
+                return SResult.Success();
+            }
+
+            var user = await _userManager.FindByEmailAsync(email.Trim());
+
+            // Same answer whether or not the account exists, so nobody can probe emails.
+            if (user != null && user.IsActive && !user.IsDeleted)
+            {
+                await SendPasswordResetEmailAsync(user);
+            }
+
+            return SResult.Success();
+        }
+
+        public async Task<SResult> ResetPasswordAsync(int userId, string token, string newPassword)
+        {
+            var invalid = SResult.Failure("This reset link is invalid or has expired.", ErrorCodes.InvalidToken);
+
+            var user = await _userManager.FindByIdAsync(userId.ToString());
+            if (user == null || !user.IsActive || user.IsDeleted)
+            {
+                return invalid;
+            }
+
+            string decodedToken;
+            try
+            {
+                decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(token));
+            }
+            catch (FormatException)
+            {
+                return invalid;
+            }
+
+            var result = await _userManager.ResetPasswordAsync(user, decodedToken, newPassword);
+            if (!result.Succeeded)
+            {
+                // A bad token and a weak password need different messages
+                if (result.Errors.Any(e => e.Code == "InvalidToken"))
+                {
+                    return invalid;
+                }
+
+                return SResult.Failure(
+                    result.Errors.Select(e => e.Description).ToArray(),
+                    ErrorCodes.WeakPassword);
+            }
+
+            // The token was delivered to this inbox, so it also proves the email is theirs
+            if (!user.EmailConfirmed)
+            {
+                user.EmailConfirmed = true;
+                await _userManager.UpdateAsync(user);
+            }
+
+            // Lift any lockout and end every existing session on every device
+            await _userManager.SetLockoutEndDateAsync(user, null);
+            await _userManager.ResetAccessFailedCountAsync(user);
+            await RevokeAllSessionsAsync(user.Id);
+
+            _logger.LogInformation("Password was reset for user {UserId}", user.Id);
+            return SResult.Success();
+        }
+
+        private async Task SendPasswordResetEmailAsync(User user)
+        {
+            if (string.IsNullOrWhiteSpace(user.Email))
+                return;
+
+            try
+            {
+                var frontendUrl = _config["App:FrontendUrl"];
+                if (string.IsNullOrWhiteSpace(frontendUrl))
+                {
+                    _logger.LogError("App:FrontendUrl is not configured, so no reset link can be built.");
+                    return;
+                }
+
+                var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                var link = $"{frontendUrl.TrimEnd('/')}/reset-password?userId={user.Id}&token={encodedToken}";
+
+                var body = $"""
+        <p>Hi {WebUtility.HtmlEncode(user.FirstName)},</p>
+        <p>We received a request to reset your Doing Life password. The link below works once:</p>
+        <p><a href="{link}">Reset my password</a></p>
+        <p>If you didn't ask for this, you can ignore this email and your password won't change.</p>
+        """;
+
+                await _emailService.SendAsync(user.Email, "Reset your password", body);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not send the password reset email for user {UserId}", user.Id);
             }
         }
 
