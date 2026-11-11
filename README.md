@@ -8,7 +8,7 @@ It is built for students, adults changing direction, and newcomers navigating an
 
 **Backend deployed to Microsoft Azure. Front-end integration is underway.**
 
-The authentication system is built, deployed, and tested end to end with a live web front end. Development is moving on to user profile management and the platform's first guidance feature. The AI features are not built yet.
+The authentication system is built, deployed, and tested end to end with a live web front end. An automated integration test suite for authentication is being written. Development is moving on to user profile management and the platform's first guidance feature. The AI features are not built yet.
 
 ## Features Implemented
 
@@ -46,9 +46,11 @@ The authentication system is built, deployed, and tested end to end with a live 
 - ASP.NET Core Data Protection keys persisted to Azure Blob Storage, so email links survive restarts and deployments
 - PostgreSQL schema managed with EF Core code-first migrations
 - Startup validation of required configuration (the app refuses to start with a missing or weak JWT key)
+- GitHub Actions workflow that builds the solution on every push and pull request
 
 ## In Progress
 
+- Automated integration tests for the authentication flow (xUnit and Testcontainers, running against a real PostgreSQL in Docker)
 - User profile and preference endpoints
 - Front-end integration
 
@@ -60,7 +62,7 @@ The authentication system is built, deployed, and tested end to end with a live 
 - Google and Apple sign-in
 - Parental-consent flow for users under 18
 - Optional one-on-one sessions with advisors
-- Automated tests and a deployment pipeline
+- Automated deployment to Azure (continuous delivery)
 - Custom domain, with the refresh token moved to an `HttpOnly` cookie for the web app
 
 ## Tech Stack
@@ -76,6 +78,8 @@ The authentication system is built, deployed, and tested end to end with a live 
 | Azure Database for PostgreSQL | Managed database |
 | Azure Communication Services | Transactional email |
 | Azure Blob Storage | Data Protection key storage |
+| xUnit + Testcontainers | Integration tests against a real PostgreSQL (in progress) |
+| GitHub Actions | Continuous integration |
 | Swagger / OpenAPI | API documentation |
 
 ## API Endpoints
@@ -112,21 +116,29 @@ The authentication system is built, deployed, and tested end to end with a live 
 ## Project Architecture
 
 ```
-backend/DoingLife.WebApi
-├── Controllers/   HTTP endpoints
-├── BLL/           Business logic (services and interfaces)
-├── DAL/           AppDbContext
-├── Entities/      Database models (User inherits IdentityUser<int>)
-├── ViewModel/     Request and response models
-├── Shared/        Helpers and constants
-└── Migrations/    EF Core migrations
+backend/
+├── DoingLife.WebApi/          the API
+│   ├── Controllers/           HTTP endpoints
+│   ├── BLL/                   Business logic (services and interfaces)
+│   ├── DAL/                   AppDbContext
+│   ├── Entities/              Database models (User inherits IdentityUser<int>)
+│   ├── ViewModel/             Request and response models
+│   ├── Shared/                Helpers and constants
+│   └── Migrations/            EF Core migrations
+└── DoingLife.WebApi.Tests/    integration and unit tests
+    ├── Infrastructure/        PostgreSQL container, fake email service, test host
+    └── Auth/                  authentication tests
 ```
 
 Controllers stay thin and translate results into HTTP responses. Services hold the business rules and return a result object (`SResult`) for expected failures instead of throwing exceptions.
 
+## Testing
+
+Authentication tests run the real `AuthService`, ASP.NET Core Identity, and EF Core against a temporary PostgreSQL container started with Testcontainers, using the project's real migrations. Only the email sender is replaced, with a fake that captures messages so tests can follow verification and reset links. Running against a real database means the tests exercise the same transactions and queries that run in production.
+
 ## Running Locally
 
-**Prerequisites:** the .NET 10 SDK and PostgreSQL.
+**Prerequisites:** the .NET 10 SDK, PostgreSQL, and Docker (for the tests).
 
 1. Create an empty PostgreSQL database.
 2. From `backend/DoingLife.WebApi`, set secrets (not `appsettings.json`):
@@ -146,6 +158,8 @@ dotnet run
 4. Open `/swagger` on the local HTTPS address.
 
 In development, verification and reset emails are written to the console instead of being sent. Copy the link from the log, and send its `userId` and `token` to the matching `POST` endpoint.
+
+**Tests:** make sure Docker is running, then run `dotnet test` from `backend/DoingLife.WebApi.Tests`. The first run downloads the PostgreSQL image, so it takes longer.
 
 ## Team
 
