@@ -67,4 +67,6 @@ public static class AuthTestExtensions
             new LoginRequestView { Email = email, Password = password },
             NewClientInfo());
     }
+
+
 }

@@ -15,7 +15,9 @@ public sealed class AuthTestHost : IAsyncDisposable
     private readonly ServiceProvider _provider;
     public FakeEmailService Email { get; } = new();
 
-    public AuthTestHost(string connectionString)
+    // "configure" lets a test replace a service, for example the email sender.
+    // It is optional, so existing calls like new AuthTestHost(connectionString) still work.
+    public AuthTestHost(string connectionString, Action<IServiceCollection>? configure = null)
     {
         var config = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -61,6 +63,9 @@ public sealed class AuthTestHost : IAsyncDisposable
         services.AddSingleton(Email);
         services.AddSingleton<IEmailService>(Email);
         services.AddScoped<IAuthService, AuthService>();
+
+        // Runs last, so a test can override anything registered above
+        configure?.Invoke(services);
 
         _provider = services.BuildServiceProvider();
     }

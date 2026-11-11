@@ -25,8 +25,13 @@ public sealed class FakeEmailService : IEmailService
     // Works for both the verification link and the password reset link.
     public (int UserId, string Token) LastLinkFor(string email)
     {
-        var message = Sent.Last(m => m.To.Equals(email, StringComparison.OrdinalIgnoreCase));
+        var message = Sent.LastOrDefault(m => m.To.Equals(email, StringComparison.OrdinalIgnoreCase))
+            ?? throw new InvalidOperationException($"No email was sent to {email}.");
+
         var match = Regex.Match(message.Body, "userId=(\\d+)&token=([^\"&]+)");
+        if (!match.Success)
+            throw new InvalidOperationException("The email did not contain a userId and token link.");
+
         return (int.Parse(match.Groups[1].Value), match.Groups[2].Value);
     }
 }
