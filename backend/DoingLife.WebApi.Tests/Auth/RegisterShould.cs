@@ -7,16 +7,16 @@ using DoingLife.WebApi.Tests.Infrastructure;
 using DoingLife.WebApi.ViewModel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using static DoingLife.WebApi.Tests.Infrastructure.FakeEmailService;
+
 
 namespace DoingLife.WebApi.Tests.Auth;
 
 [Collection("Database")]
-public class Register_Should
+public class RegisterShould
 {
     private readonly DatabaseFixture _db;
 
-    public Register_Should(DatabaseFixture db) => _db = db;
+    public RegisterShould(DatabaseFixture db) => _db = db;
 
     #region support methods
     private AuthTestHost Make_Host(Action<IServiceCollection>? configure = null)

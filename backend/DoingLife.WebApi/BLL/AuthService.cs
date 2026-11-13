@@ -109,7 +109,7 @@ namespace DoingLife.WebApi.BLL
 
         public async Task<SResult> ConfirmEmailAsync(int userId, string token)
         {
-            var invalid = SResult.Failure("This confirmation link is invalid or has expired.");
+            var invalid = SResult.Failure("This confirmation link is invalid or has expired.", ErrorCodes.InvalidToken);
 
             var user = await _userManager.FindByIdAsync(userId.ToString());
             if (user == null)
@@ -221,14 +221,14 @@ namespace DoingLife.WebApi.BLL
             const string invalid = "Invalid or expired session. Please log in again.";
 
             if (string.IsNullOrWhiteSpace(refreshToken))
-                return SResult<AuthResponseView>.Failure(invalid);
+                return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
 
             var hash = _tokenService.HashRefreshToken(refreshToken);
             var session = await _context.UserSessions
                 .FirstOrDefaultAsync(s => s.RefreshTokenHash == hash);
 
             if (session == null)
-                return SResult<AuthResponseView>.Failure(invalid);
+                return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
 
             // A revoked token was presented again: either a client bug or a stolen token.
             // End every session for this user so the thief's copy stops working too.
@@ -236,12 +236,12 @@ namespace DoingLife.WebApi.BLL
             {
                 await RevokeAllSessionsAsync(session.UserId);
                 _logger.LogWarning("A revoked refresh token was reused. All sessions revoked for user {UserId}", session.UserId);
-                return SResult<AuthResponseView>.Failure(invalid);
+                return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
             }
 
             var now = DateTime.UtcNow;
             if (session.ExpiresAt <= now)
-                return SResult<AuthResponseView>.Failure(invalid);
+                return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
 
             // The account must still be allowed to sign in
             var user = await _userManager.FindByIdAsync(session.UserId.ToString());
@@ -252,7 +252,7 @@ namespace DoingLife.WebApi.BLL
                 || await _userManager.IsLockedOutAsync(user))
             {
                 await RevokeSessionAsync(session.UserSessionId);
-                return SResult<AuthResponseView>.Failure(invalid);
+                return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
             }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -269,7 +269,7 @@ namespace DoingLife.WebApi.BLL
                 await transaction.RollbackAsync();
                 await RevokeAllSessionsAsync(session.UserId);
                 _logger.LogWarning("Concurrent reuse of a refresh token. All sessions revoked for user {UserId}", session.UserId);
-                return SResult<AuthResponseView>.Failure(invalid);
+                return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
             }
 
             var response = await IssueTokensAsync(user);
