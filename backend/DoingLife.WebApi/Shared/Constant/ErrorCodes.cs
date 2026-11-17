@@ -13,4 +13,7 @@ public static class ErrorCodes
     public const string UnderAge = "under_age";
     public const string TermsNotAccepted = "terms_not_accepted";
     public const string WeakPassword = "weak_password";
+    public const string FailedProfile = "Failed to Create Profile";
+    public const string InvalidName = "invalid_name";
+    public const string Conflict = "conflict";
 }

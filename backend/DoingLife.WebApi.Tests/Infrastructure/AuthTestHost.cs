@@ -63,6 +63,7 @@ public sealed class AuthTestHost : IAsyncDisposable
         services.AddSingleton(Email);
         services.AddSingleton<IEmailService>(Email);
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserService, UserService>();
 
         // Runs last, so a test can override anything registered above
         configure?.Invoke(services);
