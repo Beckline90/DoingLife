@@ -137,8 +137,6 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
                 .HasMaxLength(100)
                 .HasDefaultValueSql("'UTC'::character varying")
                 .HasColumnName("time_zone");
-            entity.Property(e => e.MemoryChoiceMadeAt)
-                 .HasColumnName("memory_choice_made_at");
             entity.Property(e => e.UpdatedAt)
                 .HasDefaultValueSql("now()")
                 .HasColumnName("updated_at");
