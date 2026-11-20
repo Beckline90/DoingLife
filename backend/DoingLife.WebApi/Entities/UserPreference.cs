@@ -23,8 +23,10 @@ public partial class UserPreference
     public string PreferredVoice { get; set; }
 
     public decimal SpeechRate { get; set; }
+    public DateTime? MemoryChoiceMadeAt { get; set; }
 
     public DateTime UpdatedAt { get; set; }
+    
 
     public virtual User User { get; set; }
 }
