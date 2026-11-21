@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using System.IdentityModel.Tokens.Jwt;
+using System.Reflection.Metadata.Ecma335;
 
 namespace DoingLife.WebApi.Controllers
 {
@@ -79,6 +80,35 @@ namespace DoingLife.WebApi.Controllers
             return ToResponse(result);
         }
 
+        // returns the user preference 
+        [HttpGet("me/preference")]
+        public async Task<IActionResult> GetPreferences()
+        {
+            var id = TryGetUserId();
+            if (id == null)
+            {
+                return Unauthorized();
+            }
+            var result = await _userService.GetPreferencesAsync(id.Value);
+            return ToResponse(result);
+
+        }
+
+        //patch only the settings that were sent
+        [HttpPatch("me/preferences")]
+        public async Task<IActionResult> UpdatePreference([FromBody] PreferenceUpdateView request)
+        {
+            var id = TryGetUserId();
+            if(id == null)
+            {
+                return Unauthorized();
+            }
+            var result = await _userService.UpdatePreferencesAsync(id.Value, request);
+            return ToResponse(result);
+
+        }
+
+
         #region --- helpers ---
         // Who is asking? Reads the id from the signed token, never from the request.
         // Returns null when the claim is missing or isn't a number.
@@ -102,11 +132,22 @@ namespace DoingLife.WebApi.Controllers
 
             return result.ErrorCode switch
             {
+                // The token is valid, but the account is no longer allowed. The client should sign in again.
                 ErrorCodes.AccountUnavailable => Unauthorized(body),
+
+                // The client sent something we do not accept
                 ErrorCodes.InvalidName => BadRequest(body),
+                ErrorCodes.InvalidLanguage => BadRequest(body),
+                ErrorCodes.InvalidTimeZone => BadRequest(body),
+
+                // The data changed while saving. The client should reload and try again.
                 ErrorCodes.Conflict => Conflict(body),
-                
+
+                // Faults on our side, not the client's mistake. The log holds the detail.
                 ErrorCodes.FailedProfile => StatusCode(StatusCodes.Status500InternalServerError, body),
+                ErrorCodes.MissingPreferences => StatusCode(StatusCodes.Status500InternalServerError, body),
+
+                // Anything we did not plan for is also our fault
                 _ => StatusCode(StatusCodes.Status500InternalServerError, body)
             };
         }

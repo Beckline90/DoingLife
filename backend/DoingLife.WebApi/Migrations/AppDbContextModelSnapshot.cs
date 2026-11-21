@@ -217,6 +217,10 @@ namespace DoingLife.WebApi.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("UserPreferenceId"));
 
+                    b.Property<DateTime?>("MemoryChoiceMadeAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("memory_choice_made_at");
+
                     b.Property<bool>("MemoryEnabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")

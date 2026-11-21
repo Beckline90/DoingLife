@@ -97,7 +97,7 @@ namespace DoingLife.WebApi.BLL
             }
 
             _context.UserProfiles.Add(new UserProfile { UserId = user.Id, DateOfBirth = request.DateOfBirth });
-            _context.UserPreferences.Add(new UserPreference { UserId = user.Id, TimeZone = "UTC" });
+            _context.UserPreferences.Add(new UserPreference { UserId = user.Id, TimeZone = "UTC", MemoryEnabled = true,NotificationsEnabled= true, PreferredLanguage ="en"});
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();

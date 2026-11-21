@@ -16,4 +16,8 @@ public static class ErrorCodes
     public const string FailedProfile = "Failed to Create Profile";
     public const string InvalidName = "invalid_name";
     public const string Conflict = "conflict";
+    public const string InvalidRequest = "invalid_request";
+    public const string InvalidLanguage = "invalid_language";
+    public const string InvalidTimeZone = "invalid_timezone";
+    public const string MissingPreferences = "missing_preference";
 }

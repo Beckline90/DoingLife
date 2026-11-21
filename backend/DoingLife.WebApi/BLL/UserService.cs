@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.EntityFrameworkCore;
 
 
+
 namespace DoingLife.WebApi.BLL
 {
     public class UserService:IUserService
@@ -25,13 +26,23 @@ namespace DoingLife.WebApi.BLL
 
         }
         #region --- Map entity to ViewModel ---
-        private static ProfileView ToView(User user, UserProfile profile) => new()
+        private static ProfileView ToProfileView(User user, UserProfile profile) => new()
         {
             FirstName = user.FirstName,
             LastName = user.LastName,
             Email = user.Email!,
             Bio = profile.Bio,
             DateOfBirth = profile.DateOfBirth
+        };
+
+        private static UserPreferenceView ToPreferenceView(UserPreference preference) => new()
+        {
+         PreferredLanguage = preference.PreferredLanguage ?? "en",
+         TimeZone = preference.TimeZone,
+         NotificationsEnabled = preference.NotificationsEnabled,
+         MemoryEnabled = preference.MemoryEnabled,
+         MemoryChoiceMade = preference.MemoryChoiceMadeAt!= null
+
         };
 
         #endregion
@@ -51,7 +62,7 @@ namespace DoingLife.WebApi.BLL
                 return SResult<ProfileView>.Failure("Invalid Request", ErrorCodes.FailedProfile);
             }
        
-            return SResult<ProfileView>.Success(ToView(user,userProfile));
+            return SResult<ProfileView>.Success(ToProfileView(user,userProfile));
 
         }
         public async Task<SResult<ProfileView>>UpdateProfileAsync(int userId, ProfileUpdateView request)
@@ -68,6 +79,7 @@ namespace DoingLife.WebApi.BLL
                 _logger.LogError("User {UserId} has no profile row. Registration or a data change left the account incomplete.", user.Id);
                 return SResult<ProfileView>.Failure("Invalid Request", ErrorCodes.FailedProfile);
             }
+         
             if (string.IsNullOrWhiteSpace(request.FirstName) || string.IsNullOrWhiteSpace(request.LastName))
             {
                 return SResult<ProfileView>.Failure("First and last name are required.", ErrorCodes.InvalidName);
@@ -92,10 +104,101 @@ namespace DoingLife.WebApi.BLL
                     "The profile changed while saving. Please reload and try again.", ErrorCodes.Conflict);
             }
 
-            //  Answer with what was stored, not what was typed.
-            return SResult<ProfileView>.Success(ToView(user, profile));
+            //  Answer with what was stored, not what was typed.a
+            return SResult<ProfileView>.Success(ToProfileView(user, profile));
         }
         
+        public async Task<SResult<UserPreferenceView>> GetPreferencesAsync(int userId)
+        {
+            var result = await GetUserAsync(userId);
+            if(!result.Succeeded)
+            {
+                return SResult<UserPreferenceView>.Failure("Invalid Request", ErrorCodes.AccountUnavailable);
+            }        
+            var preference = await _context.UserPreferences.AsNoTracking().SingleOrDefaultAsync(p => p.UserId == userId);
+
+            if(preference == null)
+            {
+                _logger.LogError("User {UserId} has no preference row. Registration or a data change left the account incomplete.",userId);
+                return SResult<UserPreferenceView>.Failure("Missing Preference", ErrorCodes.MissingPreferences);
+                
+            }
+            return SResult<UserPreferenceView>.Success(ToPreferenceView(preference));
+
+        }
+
+        public async Task<SResult<UserPreferenceView>> UpdatePreferencesAsync(int userId, PreferenceUpdateView request)
+        {
+            var userResult = await GetUserAsync(userId);
+            if(!userResult.Succeeded)
+            {
+                return SResult<UserPreferenceView>.Failure("Invalid Request", ErrorCodes.AccountUnavailable);
+            }
+            var preference = await _context.UserPreferences.AsTracking().SingleOrDefaultAsync(p => p.UserId == userId);
+            if(preference == null)
+            {
+                _logger.LogError("User {UserId} has no preference row. Registration or a data change left the account incomplete.", userId);
+                return SResult<UserPreferenceView>.Failure("Missing Preference", ErrorCodes.MissingPreferences);
+            }
+            // Language: only a value from the fixed list, stored in lowercase
+            string? language = null;
+            if (!string.IsNullOrWhiteSpace(request.PreferredLanguage))
+            {
+                language = request.PreferredLanguage.Trim().ToLowerInvariant();
+                if (!AppRules.SupportedLanguages.Contains(language))
+                {
+                    return SResult<UserPreferenceView>.Failure(
+                        "Preferred language is not supported.", ErrorCodes.InvalidLanguage);
+                }
+            }
+
+           
+            string? timeZone = null;
+            if (!string.IsNullOrWhiteSpace(request.TimeZone))
+            {
+                timeZone = request.TimeZone.Trim();
+                if (!TimeZoneInfo.TryFindSystemTimeZoneById(timeZone, out _))
+                {
+                    return SResult<UserPreferenceView>.Failure(
+                        "Time zone is not recognised.", ErrorCodes.InvalidTimeZone);
+                }
+            }
+
+            var anythingSent = language != null
+                              || timeZone != null
+                              || request.NotificationsEnabled != null
+                              || request.MemoryEnabled != null;
+            if(!anythingSent)
+            {
+                return SResult<UserPreferenceView>.Success(ToPreferenceView(preference));
+            }
+                             
+            if(language != null) preference.PreferredLanguage = language;
+            if(timeZone != null) preference.TimeZone = timeZone;
+            if(request.NotificationsEnabled != null)preference.NotificationsEnabled = request.NotificationsEnabled.Value;
+            if (request.MemoryEnabled != null)
+            {
+                preference.MemoryEnabled = request.MemoryEnabled.Value;
+                preference.MemoryChoiceMadeAt = DateTime.UtcNow;  
+            }
+            ;
+            preference.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _logger.LogWarning("Preference update for user {UserId} collided with another change.", userId);
+                return SResult<UserPreferenceView>.Failure(
+                    "The preferences changed while saving. Please reload and try again.", ErrorCodes.Conflict);
+            }
+
+            return SResult<UserPreferenceView>.Success(ToPreferenceView(preference));
+
+        }
+       
 
         private async Task<SResult<User>> GetUserAsync(int userId)
         {

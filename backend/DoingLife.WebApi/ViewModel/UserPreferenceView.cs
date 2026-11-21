@@ -2,10 +2,11 @@
 {
     public class UserPreferenceView
     {
-        public string PreferredLanguage { get; set; } = string.Empty;
-        public string TimeZone { get; set; } = string.Empty;
-        public bool NotificationEnabled { get; set; }
+        public required string PreferredLanguage { get; set; }
+        public required string TimeZone { get; set; }
+        public bool NotificationsEnabled { get; set; }
         public bool MemoryEnabled { get; set; }
+        public bool MemoryChoiceMade { get; set; }
 
 
     }

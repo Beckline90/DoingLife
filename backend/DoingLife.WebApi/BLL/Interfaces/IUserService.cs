@@ -7,6 +7,8 @@ namespace DoingLife.WebApi.BLL.Interfaces
     {
         Task<SResult<ProfileView>> GetProfileAsync(int userId);
         Task<SResult<ProfileView>> UpdateProfileAsync(int userId, ProfileUpdateView request);
+        Task<SResult<UserPreferenceView>> GetPreferencesAsync(int userId);
+        Task<SResult<UserPreferenceView>> UpdatePreferencesAsync(int userId, PreferenceUpdateView request);
        
     }
 }
