@@ -20,4 +20,10 @@ public static class ErrorCodes
     public const string InvalidLanguage = "invalid_language";
     public const string InvalidTimeZone = "invalid_timezone";
     public const string MissingPreferences = "missing_preference";
+    public const string EmailExists = "Email_Exists";
+    public const string WrongCurrentPassword = "Wrong_Current_Password";
+    public const string EmailUnchanged = "email_unchaged";
+    public const string EmailNotSent = "Email_not_send";
+    public const string PasswordUnchanged = "Password_Unchanged";
+    public const string AccountCloseFailed = "account_close_failed";
 }

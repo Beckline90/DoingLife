@@ -47,6 +47,8 @@ namespace DoingLife.WebApi
             // Application services
             builder.Services.AddScoped<IAuthService, AuthService>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IAccountService, AccountService>();
+            builder.Services.AddScoped<ISessionService, SessionService>();
 
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();

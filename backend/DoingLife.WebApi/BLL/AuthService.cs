@@ -23,7 +23,7 @@ namespace DoingLife.WebApi.BLL
         private readonly JwtSettings _jwtSettings;
         private readonly IPasswordHasher<User> _passwordHasher;
         private readonly ILogger<AuthService> _logger;
-
+        private readonly ISessionService _sessionService;
         public AuthService(
             UserManager<User> userManager,
             IEmailService emailService,
@@ -32,7 +32,9 @@ namespace DoingLife.WebApi.BLL
             ITokenService tokenService,
             IOptions<JwtSettings> jwtSettings,
             IPasswordHasher<User> passwordHasher,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger,
+            ISessionService sessionService)
+
         {
             _userManager = userManager;
             _emailService = emailService;
@@ -42,6 +44,7 @@ namespace DoingLife.WebApi.BLL
             _jwtSettings = jwtSettings.Value;
             _passwordHasher = passwordHasher;
             _logger = logger;
+            _sessionService = sessionService;
         }
 
         public async Task<SResult> RegisterAsync(RegisterRequestView request)
@@ -151,8 +154,7 @@ namespace DoingLife.WebApi.BLL
 
         public async Task<SResult<AuthResponseView>> LoginAsync(LoginRequestView request, ClientInfoView clientInfo)
         {
-            var invalidCredentials = SResult<AuthResponseView>.Failure(
-                "Invalid email or password.", ErrorCodes.InvalidCredentials);
+            var invalidCredentials = SResult<AuthResponseView>.Failure( "Invalid email or password.", ErrorCodes.InvalidCredentials);
 
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrEmpty(request.Password))
                 return invalidCredentials;
@@ -234,7 +236,7 @@ namespace DoingLife.WebApi.BLL
             // End every session for this user so the thief's copy stops working too.
             if (session.RevokedAt != null)
             {
-                await RevokeAllSessionsAsync(session.UserId);
+                await _sessionService.RevokeAllSessionsAsync(session.UserId);
                 _logger.LogWarning("A revoked refresh token was reused. All sessions revoked for user {UserId}", session.UserId);
                 return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
             }
@@ -267,7 +269,7 @@ namespace DoingLife.WebApi.BLL
             {
                 // Roll back first, otherwise the revoke below would be undone with it
                 await transaction.RollbackAsync();
-                await RevokeAllSessionsAsync(session.UserId);
+                await _sessionService.RevokeAllSessionsAsync(session.UserId);
                 _logger.LogWarning("Concurrent reuse of a refresh token. All sessions revoked for user {UserId}", session.UserId);
                 return SResult<AuthResponseView>.Failure(invalid, ErrorCodes.InvalidSession);
             }
@@ -299,7 +301,7 @@ namespace DoingLife.WebApi.BLL
 
         public async Task<SResult> LogoutAllAsync(int userId)
         {
-            await RevokeAllSessionsAsync(userId);
+            await _sessionService.RevokeAllSessionsAsync(userId);
             return SResult.Success();
         }
 
@@ -337,13 +339,6 @@ namespace DoingLife.WebApi.BLL
             };
         }
 
-        private async Task RevokeAllSessionsAsync(int userId)
-        {
-            var now = DateTime.UtcNow;
-            await _context.UserSessions
-                .Where(s => s.UserId == userId && s.RevokedAt == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(x => x.RevokedAt, (DateTime?)now));
-        }
 
         private async Task RevokeSessionAsync(int sessionId)
         {
@@ -450,7 +445,7 @@ namespace DoingLife.WebApi.BLL
             // Lift any lockout and end every existing session on every device
             await _userManager.SetLockoutEndDateAsync(user, null);
             await _userManager.ResetAccessFailedCountAsync(user);
-            await RevokeAllSessionsAsync(user.Id);
+            await _sessionService.RevokeAllSessionsAsync(user.Id);
 
             _logger.LogInformation("Password was reset for user {UserId}", user.Id);
             return SResult.Success();

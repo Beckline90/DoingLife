@@ -10,6 +10,8 @@ public sealed class FakeEmailService : IEmailService
     private readonly List<SentEmail> _sent = new();
     private readonly object _lock = new();
 
+    public bool ThrowOnSend { get; set; }
+
     public IReadOnlyList<SentEmail> Sent
     {
         get { lock (_lock) { return _sent.ToList(); } }
@@ -17,6 +19,12 @@ public sealed class FakeEmailService : IEmailService
 
     public Task SendAsync(string toEmail, string subject, string htmlBody)
     {
+        // Lets a test make sending fail AFTER the account has been created
+        if (ThrowOnSend)
+        {
+            throw new InvalidOperationException("The email service is down.");
+        }
+
         lock (_lock) { _sent.Add(new SentEmail(toEmail, subject, htmlBody)); }
         return Task.CompletedTask;
     }

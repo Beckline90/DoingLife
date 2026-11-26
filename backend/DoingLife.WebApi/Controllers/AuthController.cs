@@ -21,8 +21,7 @@ public class AuthController : ControllerBase
     // Register a new user
     [HttpPost("register")]
     [EnableRateLimiting("AuthRateLimit")]
-    public async Task<IActionResult> Register(
-        [FromBody] RegisterRequestView request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequestView request)
     {
         var result = await _authService.RegisterAsync(request);
         if (!result.Succeeded)

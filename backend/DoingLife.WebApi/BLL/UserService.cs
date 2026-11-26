@@ -17,12 +17,14 @@ namespace DoingLife.WebApi.BLL
         private readonly AppDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly ILogger<UserService> _logger;
+       
 
         public UserService(AppDbContext context, UserManager<User> userManager, ILogger<UserService> logger)
         {
          _context = context;
          _userManager = userManager;
           _logger = logger;
+           
 
         }
         #region --- Map entity to ViewModel ---
