@@ -5,6 +5,7 @@ using DoingLife.WebApi.BLL.Interfaces;
 using DoingLife.WebApi.DAL;
 using DoingLife.WebApi.Entities;
 using DoingLife.WebApi.Shared.Helper;
+using DoingLife.WebApi.Shared.Constant;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpLogging;
@@ -50,6 +51,11 @@ namespace DoingLife.WebApi
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<ISessionService, SessionService>();
             builder.Services.AddScoped<StudyCatalogSeeder>();
+            builder.Services.AddScoped<RoleBootstrapper>();
+
+            builder.Services.AddAuthorizationBuilder()
+                .AddPolicy(PolicyNames.CatalogEdit, p => p.RequireRole(RoleNames.SuperAdmin, RoleNames.Editor))
+                .AddPolicy(PolicyNames.CatalogPublish, p => p.RequireRole(RoleNames.SuperAdmin));
 
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();
@@ -164,6 +170,11 @@ namespace DoingLife.WebApi
                 return;
             }
 
+            using (var roleScope = app.Services.CreateScope())
+            {
+                roleScope.ServiceProvider.GetRequiredService<RoleBootstrapper>()
+                    .EnsureAsync().GetAwaiter().GetResult();
+            }
             // Enable Swagger based on configuration
             if (builder.Configuration.GetValue<bool>("Swagger:Enabled"))
             {
