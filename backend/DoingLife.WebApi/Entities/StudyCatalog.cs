@@ -1,4 +1,4 @@
-﻿namespace DoingLife.WebApi.Entities
+namespace DoingLife.WebApi.Entities
 {
     // ---------------------------------------------------------------
     // Study-in-Canada reference data. This is NOT personal data:
@@ -85,6 +85,11 @@
         public string? InternationalStatus { get; set; }   // "Open" | "Limited" | "Upcoming" | "Closed"
         public DateOnly? InternationalApplicationOpens { get; set; }
         public DateOnly? InternationalDeadline { get; set; }
+
+        // Post-Graduation Work Permit eligibility as the institution states it for this intake.
+        // null = not checked yet (never read null as "not eligible").
+        public bool? PgwpEligible { get; set; }
+        public string? PgwpNotes { get; set; }
 
         public string? DomesticStatus { get; set; }
         public DateOnly? DomesticApplicationOpens { get; set; }

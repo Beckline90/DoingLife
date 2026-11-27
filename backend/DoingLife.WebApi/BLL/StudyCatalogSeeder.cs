@@ -314,6 +314,8 @@ namespace DoingLife.WebApi.BLL
                     entity.DomesticStatus = row.Optional("domestic_status");
                     entity.DomesticApplicationOpens = row.OptionalDate("domestic_application_opens");
                     entity.DomesticDeadline = row.OptionalDate("domestic_deadline");
+                    entity.PgwpEligible = row.OptionalBool("pgwp_eligible");
+                    entity.PgwpNotes = row.Optional("pgwp_notes");
                     ApplyCommon(entity, row);
                 });
             }

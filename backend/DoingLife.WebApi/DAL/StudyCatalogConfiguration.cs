@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using DoingLife.WebApi.Entities;
 
 namespace DoingLife.WebApi.DAL
@@ -62,6 +62,7 @@ namespace DoingLife.WebApi.DAL
                 e.Property(x => x.DeliveryMode).HasMaxLength(60);
                 e.Property(x => x.InternationalStatus).HasMaxLength(20);
                 e.Property(x => x.DomesticStatus).HasMaxLength(20);
+                e.Property(x => x.PgwpNotes).HasMaxLength(500);
             });
 
             b.Entity<TuitionTerm>(e =>

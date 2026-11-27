@@ -30,6 +30,8 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
     public DbSet<ProgramIntake> ProgramIntakes => Set<ProgramIntake>();
     public DbSet<TuitionTerm> TuitionTerms => Set<TuitionTerm>();
     public DbSet<EmploymentStat> EmploymentStats => Set<EmploymentStat>();
+    public DbSet<Career> Careers => Set<Career>();
+    public DbSet<ProgramCareer> ProgramCareers => Set<ProgramCareer>();
 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -226,6 +228,7 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
                 .IsUnique();
         });
         StudyCatalogConfiguration.Apply(modelBuilder);
+        StudyCareerConfiguration.Apply(modelBuilder);
 
         OnModelCreatingPartial(modelBuilder);
     }

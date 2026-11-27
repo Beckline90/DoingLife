@@ -79,6 +79,68 @@ namespace DoingLife.WebApi.Migrations
                     b.ToTable("campuses", (string)null);
                 });
 
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Career", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("NocCode")
+                        .IsRequired()
+                        .HasMaxLength(5)
+                        .HasColumnType("character varying(5)")
+                        .HasColumnName("noc_code");
+
+                    b.Property<string>("NocVersion")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("noc_version");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.Property<int>("TeerCategory")
+                        .HasColumnType("integer")
+                        .HasColumnName("teer_category");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("title");
+
+                    b.HasKey("Id")
+                        .HasName("pk_careers");
+
+                    b.HasIndex("NocCode", "NocVersion")
+                        .IsUnique()
+                        .HasDatabaseName("ix_careers_noc_code_noc_version");
+
+                    b.ToTable("careers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_careers_noc_code", "noc_code ~ '^[0-9]{5}$'");
+
+                            t.HasCheckConstraint("ck_careers_teer", "teer_category BETWEEN 0 AND 5");
+                        });
+                });
+
             modelBuilder.Entity("DoingLife.WebApi.Entities.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -257,6 +319,64 @@ namespace DoingLife.WebApi.Migrations
                     b.ToTable("institutions", (string)null);
                 });
 
+            modelBuilder.Entity("DoingLife.WebApi.Entities.ProgramCareer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("basis");
+
+                    b.Property<int?>("CareerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("career_id");
+
+                    b.Property<string>("ExampleTitle")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("example_title");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("ProgramId")
+                        .HasColumnType("integer")
+                        .HasColumnName("program_id");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_program_careers");
+
+                    b.HasIndex("CareerId")
+                        .HasDatabaseName("ix_program_careers_career_id");
+
+                    b.HasIndex("ProgramId", "ExampleTitle")
+                        .IsUnique()
+                        .HasDatabaseName("ix_program_careers_program_id_example_title");
+
+                    b.ToTable("program_careers", (string)null);
+                });
+
             modelBuilder.Entity("DoingLife.WebApi.Entities.ProgramIntake", b =>
                 {
                     b.Property<int>("Id")
@@ -312,6 +432,15 @@ namespace DoingLife.WebApi.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("text")
                         .HasColumnName("notes");
+
+                    b.Property<bool?>("PgwpEligible")
+                        .HasColumnType("boolean")
+                        .HasColumnName("pgwp_eligible");
+
+                    b.Property<string>("PgwpNotes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("pgwp_notes");
 
                     b.Property<int>("ProgramId")
                         .HasColumnType("integer")
@@ -1107,6 +1236,26 @@ namespace DoingLife.WebApi.Migrations
                         .HasConstraintName("fk_employment_stats_study_programs_program_id");
 
                     b.Navigation("Institution");
+
+                    b.Navigation("Program");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.ProgramCareer", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.Career", "Career")
+                        .WithMany()
+                        .HasForeignKey("CareerId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_program_careers_careers_career_id");
+
+                    b.HasOne("DoingLife.WebApi.Entities.StudyProgram", "Program")
+                        .WithMany()
+                        .HasForeignKey("ProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_program_careers_study_programs_program_id");
+
+                    b.Navigation("Career");
 
                     b.Navigation("Program");
                 });

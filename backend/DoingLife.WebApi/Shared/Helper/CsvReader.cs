@@ -152,7 +152,8 @@ namespace DoingLife.WebApi.Shared.Helper
             var value = Raw(column);
             return value.Length == 0 ? null : value;
         }
-        // For columns that may be absent from a file altogether (not just empty).
+
+        // For columns that only some files have (for example 'notes'): a missing column is fine.
         public string? OptionalIfPresent(string column)
         {
             if (!_values.TryGetValue(column, out var value)) return null;
@@ -164,6 +165,14 @@ namespace DoingLife.WebApi.Shared.Helper
         {
             var value = Raw(column);
             if (value.Length == 0) return false;
+            if (bool.TryParse(value, out var result)) return result;
+            throw Error($"'{column}' must be true or false, not '{value}'");
+        }
+
+        public bool? OptionalBool(string column)
+        {
+            var value = Raw(column);
+            if (value.Length == 0) return null;   // blank means "not checked", not "no"
             if (bool.TryParse(value, out var result)) return result;
             throw Error($"'{column}' must be true or false, not '{value}'");
         }
