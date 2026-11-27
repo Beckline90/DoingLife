@@ -49,6 +49,7 @@ namespace DoingLife.WebApi
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IAccountService, AccountService>();
             builder.Services.AddScoped<ISessionService, SessionService>();
+            builder.Services.AddScoped<StudyCatalogSeeder>();
 
             // Configure Swagger
             builder.Services.AddEndpointsApiExplorer();
@@ -147,6 +148,21 @@ namespace DoingLife.WebApi
 
 
             var app = builder.Build();
+
+            var seedFlag = Array.IndexOf(args, "--seed-study");
+            if (seedFlag >= 0)
+            {
+                if (!app.Environment.IsDevelopment())
+                    throw new InvalidOperationException("--seed-study only runs in Development.");
+
+                var folder = seedFlag + 1 < args.Length ? args[seedFlag + 1] : "SeedData";
+                using var scope = app.Services.CreateScope();
+                var seeder = scope.ServiceProvider.GetRequiredService<StudyCatalogSeeder>();
+                var report = seeder.SeedAsync(folder).GetAwaiter().GetResult();
+                Console.WriteLine(report);
+                Environment.ExitCode = report.HasErrors ? 1 : 0;
+                return;
+            }
 
             // Enable Swagger based on configuration
             if (builder.Configuration.GetValue<bool>("Swagger:Enabled"))

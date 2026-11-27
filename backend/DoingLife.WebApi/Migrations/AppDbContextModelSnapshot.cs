@@ -22,6 +22,517 @@ namespace DoingLife.WebApi.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Campus", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("City")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("city");
+
+                    b.Property<int>("InstitutionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("institution_id");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("SourceName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("source_name");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_campuses");
+
+                    b.HasIndex("InstitutionId", "SourceName")
+                        .IsUnique()
+                        .HasDatabaseName("ix_campuses_institution_id_source_name");
+
+                    b.ToTable("campuses", (string)null);
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Department", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("InstitutionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("institution_id");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_departments");
+
+                    b.HasIndex("InstitutionId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_departments_institution_id_name");
+
+                    b.ToTable("departments", (string)null);
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.EmploymentStat", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Available")
+                        .HasColumnType("integer")
+                        .HasColumnName("available");
+
+                    b.Property<int>("Employed")
+                        .HasColumnType("integer")
+                        .HasColumnName("employed");
+
+                    b.Property<int>("InstitutionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("institution_id");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Period")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("period");
+
+                    b.Property<int?>("ProgramId")
+                        .HasColumnType("integer")
+                        .HasColumnName("program_id");
+
+                    b.Property<string>("SourceProgramName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("source_program_name");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_employment_stats");
+
+                    b.HasIndex("ProgramId")
+                        .HasDatabaseName("ix_employment_stats_program_id");
+
+                    b.HasIndex("InstitutionId", "SourceProgramName", "Period")
+                        .IsUnique()
+                        .HasDatabaseName("ix_employment_stats_institution_id_source_program_name_period");
+
+                    b.ToTable("employment_stats", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_employment_counts", "employed >= 0 AND available >= employed");
+                        });
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Institution", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DliNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("dli_number");
+
+                    b.Property<string>("InstitutionType")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("institution_type");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("Province")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("province");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("website");
+
+                    b.HasKey("Id")
+                        .HasName("pk_institutions");
+
+                    b.HasIndex("DliNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_institutions_dli_number");
+
+                    b.ToTable("institutions", (string)null);
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.ProgramIntake", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CampusId")
+                        .HasColumnType("integer")
+                        .HasColumnName("campus_id");
+
+                    b.Property<string>("DeliveryMode")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("delivery_mode");
+
+                    b.Property<DateOnly?>("DomesticApplicationOpens")
+                        .HasColumnType("date")
+                        .HasColumnName("domestic_application_opens");
+
+                    b.Property<DateOnly?>("DomesticDeadline")
+                        .HasColumnType("date")
+                        .HasColumnName("domestic_deadline");
+
+                    b.Property<string>("DomesticStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("domestic_status");
+
+                    b.Property<DateOnly?>("InternationalApplicationOpens")
+                        .HasColumnType("date")
+                        .HasColumnName("international_application_opens");
+
+                    b.Property<DateOnly?>("InternationalDeadline")
+                        .HasColumnType("date")
+                        .HasColumnName("international_deadline");
+
+                    b.Property<string>("InternationalStatus")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("international_status");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<int>("ProgramId")
+                        .HasColumnType("integer")
+                        .HasColumnName("program_id");
+
+                    b.Property<string>("Season")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("season");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date")
+                        .HasColumnName("start_date");
+
+                    b.HasKey("Id")
+                        .HasName("pk_program_intakes");
+
+                    b.HasIndex("CampusId")
+                        .HasDatabaseName("ix_program_intakes_campus_id");
+
+                    b.HasIndex("ProgramId", "StartDate", "CampusId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_program_intakes_program_id_start_date_campus_id");
+
+                    b.ToTable("program_intakes", (string)null);
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.StudyProgram", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AcademicMinimum")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("academic_minimum");
+
+                    b.Property<string>("Credential")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("credential");
+
+                    b.Property<int?>("DepartmentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("department_id");
+
+                    b.Property<string>("DurationText")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("duration_text");
+
+                    b.Property<int?>("EnglishMinimum")
+                        .HasColumnType("integer")
+                        .HasColumnName("english_minimum");
+
+                    b.Property<string>("EnglishTest")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("english_test");
+
+                    b.Property<string>("FieldOfStudy")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("field_of_study");
+
+                    b.Property<int>("InstitutionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("institution_id");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<bool>("OpenToInternational")
+                        .HasColumnType("boolean")
+                        .HasColumnName("open_to_international");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.HasKey("Id")
+                        .HasName("pk_study_programs");
+
+                    b.HasIndex("DepartmentId")
+                        .HasDatabaseName("ix_study_programs_department_id");
+
+                    b.HasIndex("InstitutionId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_study_programs_institution_id_name");
+
+                    b.ToTable("study_programs", (string)null);
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.TuitionTerm", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AcademicYear")
+                        .IsRequired()
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)")
+                        .HasColumnName("academic_year");
+
+                    b.Property<decimal?>("BooksSupplies")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("books_supplies");
+
+                    b.Property<bool>("IsVerified")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_verified");
+
+                    b.Property<DateOnly?>("LastVerifiedOn")
+                        .HasColumnType("date")
+                        .HasColumnName("last_verified_on");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text")
+                        .HasColumnName("notes");
+
+                    b.Property<decimal?>("OneCardSupportFee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("one_card_support_fee");
+
+                    b.Property<int>("ProgramId")
+                        .HasColumnType("integer")
+                        .HasColumnName("program_id");
+
+                    b.Property<decimal?>("RecreationAthleticsFee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("recreation_athletics_fee");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("source_url");
+
+                    b.Property<decimal?>("StudentAssociationFee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("student_association_fee");
+
+                    b.Property<decimal?>("StudentTechnologyFee")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("student_technology_fee");
+
+                    b.Property<string>("StudentType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("student_type");
+
+                    b.Property<string>("TermLabel")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("term_label");
+
+                    b.Property<int>("TermNumber")
+                        .HasColumnType("integer")
+                        .HasColumnName("term_number");
+
+                    b.Property<decimal?>("TermTotalSite")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("term_total_site");
+
+                    b.Property<decimal?>("Tuition")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("tuition");
+
+                    b.Property<string>("TuitionRateText")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("tuition_rate_text");
+
+                    b.Property<int>("YearOfStudy")
+                        .HasColumnType("integer")
+                        .HasColumnName("year_of_study");
+
+                    b.HasKey("Id")
+                        .HasName("pk_tuition_terms");
+
+                    b.HasIndex("ProgramId", "StudentType", "AcademicYear", "YearOfStudy", "TermNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tuition_terms_program_id_student_type_academic_year_year_of");
+
+                    b.ToTable("tuition_terms", (string)null);
+                });
+
             modelBuilder.Entity("DoingLife.WebApi.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -556,6 +1067,102 @@ namespace DoingLife.WebApi.Migrations
                     b.ToTable("identity_user_tokens", (string)null);
                 });
 
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Campus", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.Institution", "Institution")
+                        .WithMany("Campuses")
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_campuses_institutions_institution_id");
+
+                    b.Navigation("Institution");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Department", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.Institution", "Institution")
+                        .WithMany("Departments")
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_departments_institutions_institution_id");
+
+                    b.Navigation("Institution");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.EmploymentStat", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.Institution", "Institution")
+                        .WithMany()
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_employment_stats_institutions_institution_id");
+
+                    b.HasOne("DoingLife.WebApi.Entities.StudyProgram", "Program")
+                        .WithMany()
+                        .HasForeignKey("ProgramId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_employment_stats_study_programs_program_id");
+
+                    b.Navigation("Institution");
+
+                    b.Navigation("Program");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.ProgramIntake", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.Campus", "Campus")
+                        .WithMany()
+                        .HasForeignKey("CampusId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_program_intakes_campuses_campus_id");
+
+                    b.HasOne("DoingLife.WebApi.Entities.StudyProgram", "Program")
+                        .WithMany("Intakes")
+                        .HasForeignKey("ProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_program_intakes_study_programs_program_id");
+
+                    b.Navigation("Campus");
+
+                    b.Navigation("Program");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.StudyProgram", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.Department", "Department")
+                        .WithMany("Programs")
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("fk_study_programs_departments_department_id");
+
+                    b.HasOne("DoingLife.WebApi.Entities.Institution", "Institution")
+                        .WithMany("Programs")
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_study_programs_institutions_institution_id");
+
+                    b.Navigation("Department");
+
+                    b.Navigation("Institution");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.TuitionTerm", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.StudyProgram", "Program")
+                        .WithMany("TuitionTerms")
+                        .HasForeignKey("ProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_tuition_terms_study_programs_program_id");
+
+                    b.Navigation("Program");
+                });
+
             modelBuilder.Entity("DoingLife.WebApi.Entities.UserLoginHistory", b =>
                 {
                     b.HasOne("DoingLife.WebApi.Entities.User", "User")
@@ -658,6 +1265,27 @@ namespace DoingLife.WebApi.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_identity_user_tokens_users_user_id");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Department", b =>
+                {
+                    b.Navigation("Programs");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.Institution", b =>
+                {
+                    b.Navigation("Campuses");
+
+                    b.Navigation("Departments");
+
+                    b.Navigation("Programs");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.StudyProgram", b =>
+                {
+                    b.Navigation("Intakes");
+
+                    b.Navigation("TuitionTerms");
                 });
 
             modelBuilder.Entity("DoingLife.WebApi.Entities.User", b =>

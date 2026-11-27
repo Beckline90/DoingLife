@@ -23,6 +23,14 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
 
     public virtual DbSet<UserSession> UserSessions { get; set; }
 
+    public DbSet<Institution> Institutions => Set<Institution>();
+    public DbSet<Campus> Campuses => Set<Campus>();
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<StudyProgram> StudyPrograms => Set<StudyProgram>();
+    public DbSet<ProgramIntake> ProgramIntakes => Set<ProgramIntake>();
+    public DbSet<TuitionTerm> TuitionTerms => Set<TuitionTerm>();
+    public DbSet<EmploymentStat> EmploymentStats => Set<EmploymentStat>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -64,6 +72,8 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
             // keep your original length limits
             entity.Property(e => e.Email).HasMaxLength(255);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+
+         
         });
 
         
@@ -73,6 +83,7 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
         modelBuilder.Entity<IdentityUserLogin<int>>().ToTable("identity_user_logins");
         modelBuilder.Entity<IdentityRoleClaim<int>>().ToTable("identity_role_claims");
         modelBuilder.Entity<IdentityUserToken<int>>().ToTable("identity_user_tokens");
+
 
         modelBuilder.Entity<UserLoginHistory>(entity =>
         {
@@ -214,6 +225,7 @@ public partial class AppDbContext : IdentityDbContext<User, IdentityRole<int>, i
             entity.HasIndex(e => e.RefreshTokenHash, "ix_user_session_refresh_token_hash")
                 .IsUnique();
         });
+        StudyCatalogConfiguration.Apply(modelBuilder);
 
         OnModelCreatingPartial(modelBuilder);
     }
