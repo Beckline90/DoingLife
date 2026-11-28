@@ -141,6 +141,100 @@ namespace DoingLife.WebApi.Migrations
                         });
                 });
 
+            modelBuilder.Entity("DoingLife.WebApi.Entities.CatalogDraft", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("closed_at");
+
+                    b.Property<int?>("ClosedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("closed_by_user_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("CreatedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DliNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("dli_number");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("PublishSummary")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("publish_summary");
+
+                    b.Property<string>("SchoolName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("school_name");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("UpdatedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("updated_by_user_id");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer")
+                        .HasColumnName("version");
+
+                    b.HasKey("Id")
+                        .HasName("pk_catalog_drafts");
+
+                    b.HasIndex("ClosedByUserId")
+                        .HasDatabaseName("ix_catalog_drafts_closed_by_user_id");
+
+                    b.HasIndex("CreatedByUserId")
+                        .HasDatabaseName("ix_catalog_drafts_created_by_user_id");
+
+                    b.HasIndex("DliNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_catalog_drafts_dli_number")
+                        .HasFilter("status IN ('Open', 'ReadyForReview')");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_catalog_drafts_status");
+
+                    b.HasIndex("UpdatedByUserId")
+                        .HasDatabaseName("ix_catalog_drafts_updated_by_user_id");
+
+                    b.ToTable("catalog_drafts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_catalog_drafts_payload", "jsonb_typeof(payload) = 'object'");
+
+                            t.HasCheckConstraint("ck_catalog_drafts_status", "status IN ('Open', 'ReadyForReview', 'Published', 'Discarded')");
+                        });
+                });
+
             modelBuilder.Entity("DoingLife.WebApi.Entities.Department", b =>
                 {
                     b.Property<int>("Id")
@@ -1206,6 +1300,29 @@ namespace DoingLife.WebApi.Migrations
                         .HasConstraintName("fk_campuses_institutions_institution_id");
 
                     b.Navigation("Institution");
+                });
+
+            modelBuilder.Entity("DoingLife.WebApi.Entities.CatalogDraft", b =>
+                {
+                    b.HasOne("DoingLife.WebApi.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("ClosedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_catalog_drafts_users_closed_by_user_id");
+
+                    b.HasOne("DoingLife.WebApi.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_catalog_drafts_users_created_by_user_id");
+
+                    b.HasOne("DoingLife.WebApi.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_catalog_drafts_users_updated_by_user_id");
                 });
 
             modelBuilder.Entity("DoingLife.WebApi.Entities.Department", b =>
